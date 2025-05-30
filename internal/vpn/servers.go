@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"protonvpn-wg-config-generate/internal/api"
 	"protonvpn-wg-config-generate/internal/config"
@@ -22,6 +23,10 @@ func NewServerSelector(cfg *config.Config) *ServerSelector {
 // SelectBest selects the best server based on configuration
 func (s *ServerSelector) SelectBest(servers []api.LogicalServer) (*api.LogicalServer, error) {
 	filtered := s.filterServers(servers)
+
+	if s.config.Debug {
+		s.printDebugServerList(filtered)
+	}
 
 	if len(filtered) == 0 {
 		return nil, s.buildNoServersError()
@@ -63,8 +68,13 @@ func (s *ServerSelector) isServerEligible(server api.LogicalServer) bool {
 		return false
 	}
 
-	// Filter by P2P support if requested
-	if s.config.P2PServersOnly && server.Features&api.FeatureP2P == 0 {
+	// Filter by P2P support if requested (but not when using Secure Core)
+	if s.config.P2PServersOnly && !s.config.SecureCoreOnly && server.Features&api.FeatureP2P == 0 {
+		return false
+	}
+
+	// Filter by Secure Core if requested
+	if s.config.SecureCoreOnly && server.Features&api.FeatureSecureCore == 0 {
 		return false
 	}
 
@@ -93,7 +103,9 @@ func (s *ServerSelector) isCountryMatch(server api.LogicalServer) bool {
 func (s *ServerSelector) buildNoServersError() error {
 	errMsg := fmt.Sprintf("No suitable servers found for countries: %v", s.config.Countries)
 
-	if s.config.P2PServersOnly {
+	if s.config.SecureCoreOnly {
+		errMsg += " with Secure Core"
+	} else if s.config.P2PServersOnly {
 		errMsg += " with P2P support"
 	}
 
@@ -115,4 +127,30 @@ func GetBestPhysicalServer(server *api.LogicalServer) *api.PhysicalServer {
 
 	// If no online servers, return the first one
 	return &server.Servers[0]
+}
+
+// printDebugServerList prints a debug list of filtered servers
+func (s *ServerSelector) printDebugServerList(servers []api.LogicalServer) {
+	fmt.Printf("\nDEBUG: Found %d servers after filtering:\n", len(servers))
+	fmt.Println("================================================================================")
+	fmt.Printf("%-15s | %-15s | %-12s | Load | Score | Features\n", "Server", "City", "Tier")
+	fmt.Println("--------------------------------------------------------------------------------")
+
+	for _, server := range servers {
+		features := api.GetFeatureNames(server.Features)
+		featureStr := "-"
+		if len(features) > 0 {
+			featureStr = strings.Join(features, ", ")
+		}
+
+		fmt.Printf("%-15s | %-15s | %-12s | %3d%% | %.2f | %s\n",
+			server.Name,
+			server.City,
+			api.GetTierName(server.Tier),
+			server.Load,
+			server.Score,
+			featureStr)
+	}
+
+	fmt.Println("================================================================================")
 }

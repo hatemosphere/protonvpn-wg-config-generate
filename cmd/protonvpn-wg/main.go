@@ -4,8 +4,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ProtonVPN/go-vpn-lib/ed25519"
+	"protonvpn-wg-config-generate/internal/api"
 	"protonvpn-wg-config-generate/internal/auth"
 	"protonvpn-wg-config-generate/internal/config"
 	"protonvpn-wg-config-generate/internal/vpn"
@@ -64,8 +66,16 @@ func run() error {
 		return err
 	}
 
-	fmt.Printf("Selected server: %s (Country: %s, City: %s, Load: %d%%, Score: %.2f)\n",
-		server.Name, server.ExitCountry, server.City, server.Load, server.Score)
+	// Build feature list string
+	features := api.GetFeatureNames(server.Features)
+	featureStr := ""
+	if len(features) > 0 {
+		featureStr = fmt.Sprintf(", Features: %s", strings.Join(features, ", "))
+	}
+
+	fmt.Printf("Selected server: %s (Country: %s, City: %s, Tier: %s, Load: %d%%, Score: %.2f, Servers: %d%s)\n",
+		server.Name, server.ExitCountry, server.City, api.GetTierName(server.Tier),
+		server.Load, server.Score, len(server.Servers), featureStr)
 
 	// Get best physical server
 	physicalServer := vpn.GetBestPhysicalServer(server)

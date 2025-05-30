@@ -127,3 +127,38 @@ const (
 	PasswordModeSingle = 1
 	PasswordModeTwo    = 2
 )
+
+// GetTierName returns a human-readable name for the server tier
+func GetTierName(tier int) string {
+	switch tier {
+	case TierFree:
+		return "Free"
+	case TierPlus:
+		return "Plus"
+	case TierPM:
+		return "ProtonMail"
+	default:
+		return "Unknown"
+	}
+}
+
+// GetFeatureNames returns a list of enabled features for a server
+func GetFeatureNames(features int) []string {
+	var result []string
+	if features&FeatureSecureCore != 0 {
+		result = append(result, "SecureCore")
+	}
+	if features&FeatureTor != 0 {
+		result = append(result, "Tor")
+	}
+	if features&FeatureP2P != 0 {
+		result = append(result, "P2P")
+	}
+	if features&FeatureStreaming != 0 {
+		result = append(result, "Streaming")
+	}
+	if features&FeatureIPv6 != 0 {
+		result = append(result, "IPv6")
+	}
+	return result
+}

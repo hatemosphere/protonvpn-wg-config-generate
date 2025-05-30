@@ -30,6 +30,7 @@ func Parse() (*Config, error) {
 	// Server selection flags
 	flag.StringVar(&countriesFlag, "countries", "", "Comma-separated list of country codes (e.g., US,NL,CH)")
 	flag.BoolVar(&cfg.P2PServersOnly, "p2p-only", constants.DefaultP2POnly, "Use only P2P-enabled servers")
+	flag.BoolVar(&cfg.SecureCoreOnly, "secure-core", false, "Use only Secure Core servers (multi-hop through privacy-friendly countries)")
 
 	// Output configuration
 	flag.StringVar(&cfg.OutputFile, "output", "protonvpn.conf", "Output WireGuard configuration file")
@@ -52,6 +53,7 @@ func Parse() (*Config, error) {
 
 	// Advanced configuration
 	flag.StringVar(&cfg.APIURL, "api-url", constants.DefaultAPIURL, "ProtonVPN API URL")
+	flag.BoolVar(&cfg.Debug, "debug", false, "Enable debug output")
 
 	flag.Parse()
 

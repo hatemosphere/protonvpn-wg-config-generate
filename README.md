@@ -49,7 +49,9 @@ go build -o protonvpn-wg-config-generate
 - `-accelerator`: Enable VPN accelerator (default: true)
 - `-api-url`: ProtonVPN API URL (default: https://vpn-api.proton.me)
 - `-p2p-only`: Use only P2P-enabled servers (default: true)
+- `-secure-core`: Use only Secure Core servers for multi-hop VPN (default: false)
 - `-device-name`: Device name for WireGuard config (auto-generated if empty)
+- `-debug`: Enable debug output showing all filtered servers (default: false)
 - `-duration`: Certificate duration (default: 365d). Examples: 30m, 24h, 7d, 1h30m. Maximum: 365d
 - `-clear-session`: Clear saved session and force re-authentication
 - `-no-session`: Don't save or use session persistence
@@ -93,6 +95,16 @@ go build -o protonvpn-wg-config-generate
 ./protonvpn-wg-config-generate -username myusername -countries US -ipv6
 ```
 
+8. Use Secure Core servers for enhanced privacy:
+```bash
+./protonvpn-wg-config-generate -username myusername -countries NL,US -secure-core
+```
+
+9. Debug mode to see all available servers:
+```bash
+./protonvpn-wg-config-generate -username myusername -countries US -debug
+```
+
 ## IPv6 Support
 
 By default, the tool generates IPv4-only configurations. When you enable IPv6 with the `-ipv6` flag:
@@ -102,6 +114,22 @@ By default, the tool generates IPv4-only configurations. When you enable IPv6 wi
 - **Allowed IPs**: Both IPv4 (0.0.0.0/0) and IPv6 (::/0) routes are included
 
 You can override the defaults by explicitly specifying `-dns` and `-allowed-ips` flags.
+
+## Secure Core
+
+Secure Core is ProtonVPN's premium feature that routes your traffic through multiple servers before leaving the VPN network:
+
+- First hop: Through secure servers in privacy-friendly countries (Switzerland, Iceland, Sweden)
+- Second hop: To your chosen destination country
+- Provides additional protection against network-based attacks
+- Use the `-secure-core` flag to enable this feature
+- Note: Secure Core servers may have higher latency due to the multi-hop routing
+
+**Important Notes:**
+- Secure Core servers don't support P2P, so P2P filtering is automatically disabled when using `-secure-core`
+- The country filter always applies to **exit countries** - where your traffic appears to come from
+- Server names show both entry and exit countries (e.g., "IS-NL#1" = Iceland → Netherlands)
+- Entry countries for Secure Core are always privacy-friendly: Switzerland (CH), Iceland (IS), Sweden (SE)
 
 ## Authentication
 

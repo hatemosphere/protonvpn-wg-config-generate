@@ -11,6 +11,7 @@ type Config struct {
 	// Server selection
 	Countries      []string
 	P2PServersOnly bool
+	SecureCoreOnly bool
 
 	// Output configuration
 	OutputFile       string
@@ -34,6 +35,7 @@ type Config struct {
 
 	// Advanced configuration
 	APIURL string
+	Debug  bool
 }
 
 // ValidateCredentials checks if we have the required credentials
