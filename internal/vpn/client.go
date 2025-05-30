@@ -1,3 +1,4 @@
+// Package vpn manages VPN certificate generation and server interactions.
 package vpn
 
 import (

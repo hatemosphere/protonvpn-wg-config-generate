@@ -1,3 +1,4 @@
+// Package auth handles ProtonVPN authentication using the SRP protocol.
 package auth
 
 import (
@@ -36,7 +37,10 @@ func NewClient(cfg *config.Config) *Client {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: false,
+					MinVersion:         tls.VersionTLS12,
+				},
 			},
 		},
 	}
@@ -157,7 +161,7 @@ func (c *Client) ensureUsername() error {
 func (c *Client) ensurePassword() error {
 	if c.config.Password == "" {
 		fmt.Print("Password: ")
-		passwordBytes, err := term.ReadPassword(int(syscall.Stdin))
+		passwordBytes, err := term.ReadPassword(syscall.Stdin)
 		fmt.Println()
 		if err != nil {
 			return fmt.Errorf("error reading password: %w", err)
@@ -325,6 +329,8 @@ func (c *Client) verifySession(session *api.Session) bool {
 }
 
 // humanizeDuration converts a duration to a human-readable format
+//
+//nolint:gocognit // This function handles many time ranges for better UX
 func humanizeDuration(d time.Duration) string {
 	if d < 0 {
 		return "expired"

@@ -1,3 +1,4 @@
+// Package api defines the data structures for ProtonVPN API responses.
 package api
 
 // AuthInfoResponse represents the response from the auth info endpoint

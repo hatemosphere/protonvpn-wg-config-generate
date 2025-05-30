@@ -1,3 +1,4 @@
+// Package config handles command-line argument parsing and configuration management.
 package config
 
 import (

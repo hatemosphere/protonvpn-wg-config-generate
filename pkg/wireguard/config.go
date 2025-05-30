@@ -1,3 +1,4 @@
+// Package wireguard generates WireGuard configuration files.
 package wireguard
 
 import (
@@ -30,7 +31,7 @@ func (g *ConfigGenerator) Generate(server *api.LogicalServer, physicalServer *ap
 	return nil
 }
 
-func (g *ConfigGenerator) buildConfig(server *api.LogicalServer, physicalServer *api.PhysicalServer, privateKey string) string {
+func (g *ConfigGenerator) buildConfig(_ *api.LogicalServer, physicalServer *api.PhysicalServer, privateKey string) string {
 	addressLine := g.buildAddressLine()
 
 	return fmt.Sprintf(`[Interface]

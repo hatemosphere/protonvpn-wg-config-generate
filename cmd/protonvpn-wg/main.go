@@ -1,3 +1,4 @@
+// Package main provides the command-line interface for generating ProtonVPN WireGuard configurations.
 package main
 
 import (
