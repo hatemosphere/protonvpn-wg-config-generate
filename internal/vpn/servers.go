@@ -1,0 +1,121 @@
+package vpn
+
+import (
+	"fmt"
+	"sort"
+
+	"protonvpn-wg-config-generate/internal/api"
+	"protonvpn-wg-config-generate/internal/config"
+)
+
+// ServerSelector handles server selection logic
+type ServerSelector struct {
+	config *config.Config
+}
+
+// NewServerSelector creates a new server selector
+func NewServerSelector(cfg *config.Config) *ServerSelector {
+	return &ServerSelector{config: cfg}
+}
+
+// SelectBest selects the best server based on configuration
+func (s *ServerSelector) SelectBest(servers []api.LogicalServer) (*api.LogicalServer, error) {
+	filtered := s.filterServers(servers)
+	
+	if len(filtered) == 0 {
+		return nil, s.buildNoServersError()
+	}
+
+	// Sort servers: first by score (descending), then by load (ascending)
+	sort.Slice(filtered, func(i, j int) bool {
+		// If scores are different, higher score wins
+		if filtered[i].Score != filtered[j].Score {
+			return filtered[i].Score > filtered[j].Score
+		}
+		// If scores are equal, lower load wins
+		return filtered[i].Load < filtered[j].Load
+	})
+
+	return &filtered[0], nil
+}
+
+func (s *ServerSelector) filterServers(servers []api.LogicalServer) []api.LogicalServer {
+	var filtered []api.LogicalServer
+
+	for _, server := range servers {
+		if s.isServerEligible(server) {
+			filtered = append(filtered, server)
+		}
+	}
+
+	return filtered
+}
+
+func (s *ServerSelector) isServerEligible(server api.LogicalServer) bool {
+	// Skip offline servers
+	if server.Status != 1 {
+		return false
+	}
+
+	// Filter by Plus tier if requested
+	if s.config.PlusServersOnly && server.Tier != api.TierPlus {
+		return false
+	}
+
+	// Filter by P2P support if requested
+	if s.config.P2PServersOnly && server.Features&api.FeatureP2P == 0 {
+		return false
+	}
+
+	// Filter by country
+	if !s.isCountryMatch(server) {
+		return false
+	}
+
+	// Skip servers with no physical servers
+	if len(server.Servers) == 0 {
+		return false
+	}
+
+	return true
+}
+
+func (s *ServerSelector) isCountryMatch(server api.LogicalServer) bool {
+	for _, country := range s.config.Countries {
+		if server.ExitCountry == country {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *ServerSelector) buildNoServersError() error {
+	errMsg := fmt.Sprintf("No suitable servers found for countries: %v", s.config.Countries)
+	
+	if s.config.P2PServersOnly {
+		errMsg += " with P2P support"
+	}
+	
+	if s.config.PlusServersOnly {
+		errMsg += " (Plus tier)"
+	}
+	
+	return fmt.Errorf(errMsg)
+}
+
+// GetBestPhysicalServer returns the best physical server from a logical server
+func GetBestPhysicalServer(server *api.LogicalServer) *api.PhysicalServer {
+	if len(server.Servers) == 0 {
+		return nil
+	}
+
+	// Find the first online physical server
+	for _, ps := range server.Servers {
+		if ps.Status == 1 {
+			return &ps
+		}
+	}
+
+	// If no online servers, return the first one
+	return &server.Servers[0]
+}
