@@ -2,9 +2,14 @@
 
 A Go program that generates WireGuard configuration files for ProtonVPN servers with automatic selection of the best servers from specified countries with support of generic filters.
 
+## Motivation
+
+The motivation to write this was simple - I wanted to automatically rotate VPN servers on my private HTPC Linux host running WireGuard, and since I'm already paying for a Proton bundle subscription, why not just use theirs? Unfortunately, as of the time of writing, they didn't have a good programmatic headless way to generate WireGuard profiles, so I did my research and reverse-engineered their APIs (which was a pain in the butt) and created this. The idea is to run this code as a daemon and restart the WireGuard client on profile file change.
+
 ## Features
 
 - Authenticates with ProtonVPN using username/password
+- Opnionally persists and refreshes login session, to function in headless mode after entering password once
 - Supports 2FA authentication
 - Creates persistent WireGuard configurations (visible in ProtonVPN dashboard)
 - Automatically selects the best server (highest score, lowest load) from specified countries
