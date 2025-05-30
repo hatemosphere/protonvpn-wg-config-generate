@@ -96,5 +96,8 @@ func run() error {
 		fmt.Printf("Device name: %s (visible in ProtonVPN dashboard)\n", vpnInfo.DeviceName)
 	}
 
+	// Show final success
+	fmt.Printf("\nSuccessfully generated config for %s\n", server.ExitCountry)
+
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"text/template"
+	"time"
 
 	"protonvpn-wg-config-generate/internal/api"
 	"protonvpn-wg-config-generate/internal/config"
@@ -62,7 +63,10 @@ func (g *ConfigGenerator) Generate(server *api.LogicalServer, physicalServer *ap
 	return nil
 }
 
-func (g *ConfigGenerator) buildConfig(_ *api.LogicalServer, physicalServer *api.PhysicalServer, privateKey string) string {
+func (g *ConfigGenerator) buildConfig(server *api.LogicalServer, physicalServer *api.PhysicalServer, privateKey string) string {
+	// Build metadata header
+	metadata := g.buildMetadata(server, physicalServer)
+
 	data := configData{
 		PrivateKey:  privateKey,
 		AddressLine: g.buildAddressLine(),
@@ -79,7 +83,7 @@ func (g *ConfigGenerator) buildConfig(_ *api.LogicalServer, physicalServer *api.
 		panic(fmt.Sprintf("failed to execute template: %v", err))
 	}
 
-	return buf.String()
+	return metadata + buf.String()
 }
 
 func (g *ConfigGenerator) buildAddressLine() string {
@@ -87,4 +91,48 @@ func (g *ConfigGenerator) buildAddressLine() string {
 		return fmt.Sprintf("Address = %s, %s", constants.WireGuardIPv4, constants.WireGuardIPv6)
 	}
 	return fmt.Sprintf("Address = %s", constants.WireGuardIPv4)
+}
+
+func (g *ConfigGenerator) buildMetadata(server *api.LogicalServer, physicalServer *api.PhysicalServer) string {
+	var metadata strings.Builder
+
+	metadata.WriteString("# ProtonVPN WireGuard Configuration\n")
+	metadata.WriteString(fmt.Sprintf("# Generated: %s\n", time.Now().Format("2006-01-02 15:04:05 MST")))
+	if g.config.DeviceName != "" {
+		metadata.WriteString(fmt.Sprintf("# Device: %s\n", g.config.DeviceName))
+	}
+	metadata.WriteString("#\n")
+	metadata.WriteString("# Server Information:\n")
+	metadata.WriteString(fmt.Sprintf("# - Name: %s\n", server.Name))
+	metadata.WriteString(fmt.Sprintf("# - Country: %s\n", server.ExitCountry))
+	metadata.WriteString(fmt.Sprintf("# - City: %s\n", server.City))
+	metadata.WriteString(fmt.Sprintf("# - Tier: %s\n", api.GetTierName(server.Tier)))
+	metadata.WriteString(fmt.Sprintf("# - Load: %d%%\n", server.Load))
+	metadata.WriteString(fmt.Sprintf("# - Score: %.2f\n", server.Score))
+
+	// Add features if any
+	features := api.GetFeatureNames(server.Features)
+	if len(features) > 0 {
+		metadata.WriteString(fmt.Sprintf("# - Features: %s\n", strings.Join(features, ", ")))
+	}
+
+	// Add physical server info
+	metadata.WriteString("#\n")
+	metadata.WriteString("# Physical Server:\n")
+	metadata.WriteString(fmt.Sprintf("# - ID: %s\n", physicalServer.ID))
+	metadata.WriteString(fmt.Sprintf("# - Entry IP: %s\n", physicalServer.EntryIP))
+	if physicalServer.ExitIP != physicalServer.EntryIP {
+		metadata.WriteString(fmt.Sprintf("# - Exit IP: %s\n", physicalServer.ExitIP))
+	}
+
+	// Add secure core routing info if applicable
+	if server.EntryCountry != server.ExitCountry && server.EntryCountry != "" {
+		metadata.WriteString("#\n")
+		metadata.WriteString(fmt.Sprintf("# Secure Core Routing: %s → %s\n",
+			server.EntryCountry, server.ExitCountry))
+	}
+
+	metadata.WriteString("#\n\n")
+
+	return metadata.String()
 }

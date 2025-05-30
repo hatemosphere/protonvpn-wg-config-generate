@@ -132,9 +132,9 @@ func GetBestPhysicalServer(server *api.LogicalServer) *api.PhysicalServer {
 // printDebugServerList prints a debug list of filtered servers
 func (s *ServerSelector) printDebugServerList(servers []api.LogicalServer) {
 	fmt.Printf("\nDEBUG: Found %d servers after filtering:\n", len(servers))
-	fmt.Println("================================================================================")
-	fmt.Printf("%-15s | %-15s | %-12s | Load | Score | Features\n", "Server", "City", "Tier")
-	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Println("==================================================================================")
+	fmt.Printf("%-15s | %-18s | %-12s | Load | Score | Features\n", "Server", "City", "Tier")
+	fmt.Println("----------------------------------------------------------------------------------")
 
 	for _, server := range servers {
 		features := api.GetFeatureNames(server.Features)
@@ -143,7 +143,7 @@ func (s *ServerSelector) printDebugServerList(servers []api.LogicalServer) {
 			featureStr = strings.Join(features, ", ")
 		}
 
-		fmt.Printf("%-15s | %-15s | %-12s | %3d%% | %.2f | %s\n",
+		fmt.Printf("%-15s | %-18s | %-12s | %3d%% | %.2f | %s\n",
 			server.Name,
 			server.City,
 			api.GetTierName(server.Tier),
@@ -152,5 +152,5 @@ func (s *ServerSelector) printDebugServerList(servers []api.LogicalServer) {
 			featureStr)
 	}
 
-	fmt.Println("================================================================================")
+	fmt.Println("==================================================================================")
 }
