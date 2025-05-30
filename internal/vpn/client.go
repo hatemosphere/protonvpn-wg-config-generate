@@ -9,11 +9,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ProtonVPN/go-vpn-lib/ed25519"
 	"protonvpn-wg-config-generate/internal/api"
 	"protonvpn-wg-config-generate/internal/config"
 	"protonvpn-wg-config-generate/internal/constants"
 	"protonvpn-wg-config-generate/pkg/timeutil"
+
+	"github.com/ProtonVPN/go-vpn-lib/ed25519"
 )
 
 // Client handles VPN operations
@@ -62,7 +63,7 @@ func (c *Client) GetCertificate(keyPair *ed25519.KeyPair) (*api.VPNInfo, error) 
 			"moderate-nat":    false,
 			"port-forwarding": false,
 			"vpn-accelerator": c.config.EnableAccelerator,
-			"bouncing":        c.config.EnableAccelerator,
+			"bouncing":        true,
 		},
 	}
 
