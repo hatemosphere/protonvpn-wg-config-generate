@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +19,8 @@ import (
 	"golang.org/x/term"
 	"protonvpn-wg-config-generate/internal/api"
 	"protonvpn-wg-config-generate/internal/config"
+	"protonvpn-wg-config-generate/internal/constants"
+	"protonvpn-wg-config-generate/pkg/timeutil"
 )
 
 // Client handles ProtonVPN authentication
@@ -46,6 +47,68 @@ func NewClient(cfg *config.Config) *Client {
 	}
 }
 
+// handleSessionRefresh attempts to refresh a session and save it if successful
+func (c *Client) handleSessionRefresh(savedSession *api.Session, reason string) (*api.Session, error) {
+	fmt.Println(reason)
+	refreshedSession, err := RefreshSession(c.httpClient, c.config.APIURL, savedSession)
+	if err != nil {
+		fmt.Printf("Token refresh failed: %v\n", err)
+		fmt.Println("Re-authenticating with password...")
+		fmt.Println("(Your trusted device status for MFA will be preserved)")
+		_ = c.sessionStore.Delete()
+		return nil, err
+	}
+
+	fmt.Println("Session refreshed successfully!")
+	// Check if refresh token was rotated
+	if savedSession.RefreshToken != refreshedSession.RefreshToken {
+		fmt.Println("Refresh token was rotated")
+	}
+
+	// Save the refreshed session
+	if !c.config.NoSession {
+		sessionDuration, _ := timeutil.ParseSessionDuration(c.config.SessionDuration)
+		if err := c.sessionStore.Save(refreshedSession, c.config.Username, sessionDuration); err != nil {
+			fmt.Printf("Warning: Failed to save refreshed session: %v\n", err)
+		}
+	}
+
+	return refreshedSession, nil
+}
+
+// tryExistingSession attempts to use an existing saved session
+func (c *Client) tryExistingSession() (*api.Session, error) {
+	savedSession, timeUntilExpiry, err := c.sessionStore.Load(c.config.Username)
+	if err != nil {
+		fmt.Printf("Warning: Failed to load saved session: %v\n", err)
+		return nil, err
+	}
+
+	if savedSession == nil {
+		return nil, nil
+	}
+
+	// Determine what to do with the saved session
+	switch {
+	case c.config.ForceRefresh:
+		reason := fmt.Sprintf("Forcing session refresh (current session expires in %s)", timeutil.HumanizeDuration(timeUntilExpiry))
+		return c.handleSessionRefresh(savedSession, reason)
+
+	case timeUntilExpiry < time.Duration(constants.SessionRefreshDays)*24*time.Hour && timeUntilExpiry > 0:
+		reason := fmt.Sprintf("Session expires soon (in %s), attempting refresh...", timeutil.HumanizeDuration(timeUntilExpiry))
+		return c.handleSessionRefresh(savedSession, reason)
+
+	case VerifySession(c.httpClient, c.config.APIURL, savedSession):
+		fmt.Printf("Using saved session (expires in %s)\n", timeutil.HumanizeDuration(timeUntilExpiry))
+		return savedSession, nil
+
+	default:
+		fmt.Println("Saved session invalid, re-authenticating...")
+		_ = c.sessionStore.Delete()
+		return nil, nil
+	}
+}
+
 // Authenticate performs the full authentication flow
 func (c *Client) Authenticate() (*api.Session, error) {
 	// Get username if not provided
@@ -58,18 +121,9 @@ func (c *Client) Authenticate() (*api.Session, error) {
 		fmt.Println("Clearing saved session...")
 		_ = c.sessionStore.Delete()
 	} else if !c.config.NoSession {
-		// Try to load saved session
-		savedSession, timeUntilExpiry, err := c.sessionStore.Load(c.config.Username)
-		if err != nil {
-			fmt.Printf("Warning: Failed to load saved session: %v\n", err)
-		} else if savedSession != nil {
-			// Verify the session is still valid by making a test request
-			if c.verifySession(savedSession) {
-				fmt.Printf("Using saved session (expires in %s)\n", humanizeDuration(timeUntilExpiry))
-				return savedSession, nil
-			}
-			fmt.Println("Saved session invalid, re-authenticating...")
-			_ = c.sessionStore.Delete()
+		// Try to use existing session
+		if session, err := c.tryExistingSession(); err == nil && session != nil {
+			return session, nil
 		}
 	}
 
@@ -134,7 +188,7 @@ func (c *Client) Authenticate() (*api.Session, error) {
 	// Save the session for future use (unless disabled)
 	if !c.config.NoSession {
 		// Parse session duration
-		sessionDuration, err := config.ParseSessionDuration(c.config.SessionDuration)
+		sessionDuration, err := timeutil.ParseSessionDuration(c.config.SessionDuration)
 		if err != nil {
 			fmt.Printf("Warning: Invalid session duration, using default: %v\n", err)
 			sessionDuration = 0 // Default to no expiration
@@ -270,8 +324,7 @@ func (c *Client) sendAuthRequest(authReq map[string]interface{}) (*api.Session, 
 	}
 
 	if session.Code != 1000 {
-		errMsg := c.getErrorMessage(session.Code)
-		return nil, errors.New(errMsg)
+		return nil, NewError(session.Code)
 	}
 
 	return &session, nil
@@ -279,143 +332,6 @@ func (c *Client) sendAuthRequest(authReq map[string]interface{}) (*api.Session, 
 
 func (c *Client) setHeaders(req *http.Request) {
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-pm-appversion", "linux-vpn@4.2.0")
-	req.Header.Set("User-Agent", "ProtonVPN/4.2.0 (Linux; Ubuntu)")
-}
-
-func (c *Client) getErrorMessage(code int) string {
-	switch code {
-	case 8004:
-		return "incorrect username or password"
-	case 8002:
-		return "password format is incorrect"
-	case 9001:
-		return "CAPTCHA verification required. This typically happens when ProtonVPN detects automated access. Try: 1) Login via web browser first, 2) Use a different IP, or 3) Wait some time before retrying"
-	case 10002:
-		return "2FA code is required"
-	case 10003:
-		return "invalid 2FA code"
-	default:
-		return fmt.Sprintf("authentication failed with code: %d", code)
-	}
-}
-
-// verifySession checks if a saved session is still valid
-func (c *Client) verifySession(session *api.Session) bool {
-	// Make a simple request to verify the session
-	req, err := http.NewRequest("GET", c.config.APIURL+"/vpn/v1/logicals", nil)
-	if err != nil {
-		return false
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", session.AccessToken))
-	req.Header.Set("x-pm-uid", session.UID)
-	req.Header.Set("x-pm-appversion", "linux-vpn@4.2.0")
-	req.Header.Set("User-Agent", "ProtonVPN/4.2.0 (Linux; Ubuntu)")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return false
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	// If we get a 401, the session is invalid
-	if resp.StatusCode == http.StatusUnauthorized {
-		return false
-	}
-
-	// Any 2xx response means the session is valid
-	return resp.StatusCode >= 200 && resp.StatusCode < 300
-}
-
-// humanizeDuration converts a duration to a human-readable format
-//
-//nolint:gocognit // This function handles many time ranges for better UX
-func humanizeDuration(d time.Duration) string {
-	if d < 0 {
-		return "expired"
-	}
-
-	// Less than a minute
-	if d < time.Minute {
-		return "less than a minute"
-	}
-
-	// Less than an hour
-	if d < time.Hour {
-		minutes := int(d.Minutes())
-		if minutes == 1 {
-			return "1 minute"
-		}
-		return fmt.Sprintf("%d minutes", minutes)
-	}
-
-	// Less than a day
-	if d < 24*time.Hour {
-		hours := int(d.Hours())
-		minutes := int(d.Minutes()) % 60
-		if hours == 1 && minutes == 0 {
-			return "1 hour"
-		}
-		if minutes == 0 {
-			return fmt.Sprintf("%d hours", hours)
-		}
-		return fmt.Sprintf("%d hours %d minutes", hours, minutes)
-	}
-
-	// Days
-	days := int(d.Hours() / 24)
-	hours := int(d.Hours()) % 24
-
-	// Less than a week
-	if days < 7 {
-		if days == 1 && hours == 0 {
-			return "1 day"
-		}
-		if hours == 0 {
-			return fmt.Sprintf("%d days", days)
-		}
-		return fmt.Sprintf("%d days %d hours", days, hours)
-	}
-
-	// Weeks to months
-	if days < 30 {
-		weeks := days / 7
-		remainingDays := days % 7
-		if weeks == 1 && remainingDays == 0 {
-			return "1 week"
-		}
-		if remainingDays == 0 {
-			return fmt.Sprintf("%d weeks", weeks)
-		}
-		return fmt.Sprintf("%d weeks %d days", weeks, remainingDays)
-	}
-
-	// Months to years
-	if days < 365 {
-		months := days / 30
-		remainingDays := days % 30
-		if months == 1 && remainingDays == 0 {
-			return "1 month"
-		}
-		if remainingDays == 0 {
-			return fmt.Sprintf("%d months", months)
-		}
-		return fmt.Sprintf("%d months %d days", months, remainingDays)
-	}
-
-	// Years
-	years := days / 365
-	remainingDays := days % 365
-	if years == 1 && remainingDays == 0 {
-		return "1 year"
-	}
-	if remainingDays == 0 {
-		return fmt.Sprintf("%d years", years)
-	}
-	if remainingDays < 30 {
-		return fmt.Sprintf("%d years %d days", years, remainingDays)
-	}
-	months := remainingDays / 30
-	return fmt.Sprintf("%d years %d months", years, months)
+	req.Header.Set("x-pm-appversion", constants.AppVersion)
+	req.Header.Set("User-Agent", constants.UserAgent)
 }

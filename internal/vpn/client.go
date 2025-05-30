@@ -12,6 +12,8 @@ import (
 	"github.com/ProtonVPN/go-vpn-lib/ed25519"
 	"protonvpn-wg-config-generate/internal/api"
 	"protonvpn-wg-config-generate/internal/config"
+	"protonvpn-wg-config-generate/internal/constants"
+	"protonvpn-wg-config-generate/pkg/timeutil"
 )
 
 // Client handles VPN operations
@@ -44,7 +46,7 @@ func (c *Client) GetCertificate(keyPair *ed25519.KeyPair) (*api.VPNInfo, error) 
 	}
 
 	// Parse duration
-	duration, err := config.ParseDuration(c.config.Duration)
+	durationStr, err := timeutil.ParseToMinutes(c.config.Duration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse duration: %w", err)
 	}
@@ -54,7 +56,7 @@ func (c *Client) GetCertificate(keyPair *ed25519.KeyPair) (*api.VPNInfo, error) 
 		"ClientPublicKeyMode": "EC",
 		"Mode":                "persistent", // Create persistent configuration
 		"DeviceName":          deviceName,
-		"Duration":            duration,
+		"Duration":            durationStr,
 		"Features": map[string]interface{}{
 			"netshield-level": 0,
 			"moderate-nat":    false,
@@ -135,6 +137,6 @@ func (c *Client) setHeaders(req *http.Request) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.session.AccessToken))
 	req.Header.Set("x-pm-uid", c.session.UID)
-	req.Header.Set("x-pm-appversion", "linux-vpn@4.2.0")
-	req.Header.Set("User-Agent", "ProtonVPN/4.2.0 (Linux; Ubuntu)")
+	req.Header.Set("x-pm-appversion", constants.AppVersion)
+	req.Header.Set("User-Agent", constants.UserAgent)
 }

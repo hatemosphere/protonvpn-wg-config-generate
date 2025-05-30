@@ -37,8 +37,9 @@ go build -o protonvpn-wg-config-generate
 - `-username`: ProtonVPN username (optional, will prompt if not provided)
 - `-countries`: Comma-separated list of country codes (e.g., US,NL,CH) **[Required]**
 - `-output`: Output WireGuard configuration file (default: protonvpn.conf)
-- `-dns`: Comma-separated list of DNS servers (default: 10.2.0.1)
-- `-allowed-ips`: Comma-separated list of allowed IPs (default: 0.0.0.0/0,::/0)
+- `-ipv6`: Enable IPv6 support (default: false)
+- `-dns`: Comma-separated list of DNS servers (defaults based on IPv6 setting)
+- `-allowed-ips`: Comma-separated list of allowed IPs (defaults based on IPv6 setting)
 - `-accelerator`: Enable VPN accelerator (default: true)
 - `-api-url`: ProtonVPN API URL (default: https://vpn-api.proton.me)
 - `-plus-only`: Use only Plus servers (default: true)
@@ -47,6 +48,7 @@ go build -o protonvpn-wg-config-generate
 - `-duration`: Certificate duration (default: 365d). Examples: 30m, 24h, 7d, 1h30m. Maximum: 365d
 - `-clear-session`: Clear saved session and force re-authentication
 - `-no-session`: Don't save or use session persistence
+- `-force-refresh`: Force session refresh even if not close to expiration (requires re-authentication)
 - `-session-duration`: Session cache duration (default: 0 = use API expiration). Examples: 12h, 24h, 7d. Max: 30d
 
 ### Examples
@@ -81,6 +83,20 @@ go build -o protonvpn-wg-config-generate
 ./protonvpn-wg-config-generate -username myusername -countries US -session-duration 24h
 ```
 
+7. Enable IPv6 support:
+```bash
+./protonvpn-wg-config-generate -username myusername -countries US -ipv6
+```
+
+## IPv6 Support
+
+By default, the tool generates IPv4-only configurations. When you enable IPv6 with the `-ipv6` flag:
+
+- **Interface Address**: Both IPv4 (10.2.0.2/32) and IPv6 (2a07:b944::2:2/128) addresses are assigned
+- **DNS Servers**: IPv4 DNS (10.2.0.1) and IPv6 DNS (2a07:b944::2:1) - both ProtonVPN's internal DNS servers
+- **Allowed IPs**: Both IPv4 (0.0.0.0/0) and IPv6 (::/0) routes are included
+
+You can override the defaults by explicitly specifying `-dns` and `-allowed-ips` flags.
 
 ## Authentication
 
@@ -99,7 +115,9 @@ The program saves your authentication session to avoid re-entering credentials:
 - Custom durations are capped at the API's expiration time
 - Sessions show time until expiration when reused
 - Sessions are automatically verified before use
+- Sessions automatically refresh when less than 7 days remain
 - Use `-clear-session` flag to force re-authentication
+- Use `-force-refresh` flag to force refresh even if not expiring soon
 - Use `-no-session` flag to disable session persistence entirely
 - Sessions are user-specific and won't be used for different usernames
 

@@ -1,18 +1,17 @@
 package auth
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
 	"protonvpn-wg-config-generate/internal/api"
-)
-
-const (
-	sessionFileName = ".protonvpn-session.json"
-	sessionFileMode = 0600 // Read/write for owner only
+	"protonvpn-wg-config-generate/internal/constants"
 )
 
 // SessionStore handles persistent session storage
@@ -29,7 +28,7 @@ func NewSessionStore() *SessionStore {
 	}
 
 	return &SessionStore{
-		filePath: filepath.Join(homeDir, sessionFileName),
+		filePath: filepath.Join(homeDir, constants.SessionFileName),
 	}
 }
 
@@ -70,7 +69,7 @@ func (s *SessionStore) Save(session *api.Session, username string, duration time
 		return fmt.Errorf("failed to marshal session: %w", err)
 	}
 
-	err = os.WriteFile(s.filePath, data, sessionFileMode)
+	err = os.WriteFile(s.filePath, data, constants.SessionFileMode)
 	if err != nil {
 		return fmt.Errorf("failed to write session file: %w", err)
 	}
@@ -125,4 +124,87 @@ func (s *SessionStore) Delete() error {
 // GetPath returns the session file path
 func (s *SessionStore) GetPath() string {
 	return s.filePath
+}
+
+// RefreshSession attempts to refresh the session using the refresh token.
+// It returns a new session with updated tokens if successful.
+func RefreshSession(httpClient *http.Client, apiURL string, oldSession *api.Session) (*api.Session, error) {
+	// Based on WebClients source, the refresh endpoint is /auth/refresh
+	reqBody := map[string]interface{}{
+		"ResponseType": "token",
+		"GrantType":    "refresh_token",
+		"RefreshToken": oldSession.RefreshToken,
+		"RedirectURI":  "https://protonmail.com",
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", apiURL+"/auth/refresh", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+
+	// Set standard headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-pm-appversion", constants.AppVersion)
+	req.Header.Set("User-Agent", constants.UserAgent)
+
+	// Include auth headers for refresh
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", oldSession.AccessToken))
+	req.Header.Set("x-pm-uid", oldSession.UID)
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode == http.StatusOK {
+		var session api.Session
+		if err := json.Unmarshal(respBody, &session); err != nil {
+			return nil, err
+		}
+		if session.Code == 1000 {
+			return &session, nil
+		}
+	}
+
+	// If refresh fails, return error to trigger re-authentication
+	return nil, fmt.Errorf("refresh failed (status %d): %s", resp.StatusCode, string(respBody))
+}
+
+// VerifySession checks if a session is still valid by making a test API request.
+func VerifySession(httpClient *http.Client, apiURL string, session *api.Session) bool {
+	// Make a simple request to verify the session
+	req, err := http.NewRequest("GET", apiURL+"/vpn/v1/logicals", nil)
+	if err != nil {
+		return false
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", session.AccessToken))
+	req.Header.Set("x-pm-uid", session.UID)
+	req.Header.Set("x-pm-appversion", constants.AppVersion)
+	req.Header.Set("User-Agent", constants.UserAgent)
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// If we get a 401, the session is invalid
+	if resp.StatusCode == http.StatusUnauthorized {
+		return false
+	}
+
+	// Any 2xx response means the session is valid
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }

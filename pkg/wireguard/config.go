@@ -2,22 +2,53 @@
 package wireguard
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
+	"text/template"
 
 	"protonvpn-wg-config-generate/internal/api"
 	"protonvpn-wg-config-generate/internal/config"
+	"protonvpn-wg-config-generate/internal/constants"
 )
+
+// wireguardConfigTemplate is the template for generating WireGuard configuration
+const wireguardConfigTemplate = `[Interface]
+PrivateKey = {{.PrivateKey}}
+{{.AddressLine}}
+DNS = {{.DNS}}
+
+[Peer]
+PublicKey = {{.PublicKey}}
+AllowedIPs = {{.AllowedIPs}}
+Endpoint = {{.Endpoint}}:{{.Port}}
+`
+
+// configData holds the data for the WireGuard config template
+type configData struct {
+	PrivateKey  string
+	AddressLine string
+	DNS         string
+	PublicKey   string
+	AllowedIPs  string
+	Endpoint    string
+	Port        int
+}
 
 // ConfigGenerator generates WireGuard configuration files
 type ConfigGenerator struct {
-	config *config.Config
+	config   *config.Config
+	template *template.Template
 }
 
 // NewConfigGenerator creates a new configuration generator
 func NewConfigGenerator(cfg *config.Config) *ConfigGenerator {
-	return &ConfigGenerator{config: cfg}
+	tmpl := template.Must(template.New("wireguard").Parse(wireguardConfigTemplate))
+	return &ConfigGenerator{
+		config:   cfg,
+		template: tmpl,
+	}
 }
 
 // Generate creates a WireGuard configuration file
@@ -32,39 +63,28 @@ func (g *ConfigGenerator) Generate(server *api.LogicalServer, physicalServer *ap
 }
 
 func (g *ConfigGenerator) buildConfig(_ *api.LogicalServer, physicalServer *api.PhysicalServer, privateKey string) string {
-	addressLine := g.buildAddressLine()
+	data := configData{
+		PrivateKey:  privateKey,
+		AddressLine: g.buildAddressLine(),
+		DNS:         strings.Join(g.config.DNSServers, ", "),
+		PublicKey:   physicalServer.X25519PublicKey,
+		AllowedIPs:  strings.Join(g.config.AllowedIPs, ", "),
+		Endpoint:    physicalServer.EntryIP,
+		Port:        constants.WireGuardPort,
+	}
 
-	return fmt.Sprintf(`[Interface]
-PrivateKey = %s
-%s
-DNS = %s
+	var buf bytes.Buffer
+	if err := g.template.Execute(&buf, data); err != nil {
+		// This should never happen with a valid template
+		panic(fmt.Sprintf("failed to execute template: %v", err))
+	}
 
-[Peer]
-PublicKey = %s
-AllowedIPs = %s
-Endpoint = %s:51820
-`,
-		privateKey,
-		addressLine,
-		strings.Join(g.config.DNSServers, ", "),
-		physicalServer.X25519PublicKey,
-		strings.Join(g.config.AllowedIPs, ", "),
-		physicalServer.EntryIP,
-	)
+	return buf.String()
 }
 
 func (g *ConfigGenerator) buildAddressLine() string {
-	// Check if IPv6 is included in allowed IPs
-	hasIPv6 := false
-	for _, ip := range g.config.AllowedIPs {
-		if strings.Contains(ip, "::/0") {
-			hasIPv6 = true
-			break
-		}
+	if g.config.EnableIPv6 {
+		return fmt.Sprintf("Address = %s, %s", constants.WireGuardIPv4, constants.WireGuardIPv6)
 	}
-
-	if hasIPv6 {
-		return "Address = 10.2.0.2/32, fd00::2/128"
-	}
-	return "Address = 10.2.0.2/32"
+	return fmt.Sprintf("Address = %s", constants.WireGuardIPv4)
 }
