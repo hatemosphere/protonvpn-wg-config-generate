@@ -162,15 +162,38 @@ Import the configuration file into your WireGuard client.
 .
 ├── cmd/
 │   └── protonvpn-wg/      # Main application entry point
+│       └── main.go        # CLI entry point
 ├── internal/              # Private application code
-│   ├── api/              # API types and constants
+│   ├── api/              # API types and data structures
+│   │   └── types.go      # ProtonVPN API response types
 │   ├── auth/             # Authentication logic
+│   │   ├── auth.go       # SRP authentication implementation
+│   │   ├── errors.go     # Custom error types
+│   │   └── session.go    # Session management and refresh
 │   ├── config/           # Configuration handling
-│   └── vpn/              # VPN client and server selection
+│   │   ├── flags.go      # Command-line flag parsing
+│   │   └── types.go      # Config struct and validation
+│   ├── constants/        # Application constants
+│   │   ├── api.go        # API endpoints and headers
+│   │   ├── defaults.go   # Default configuration values
+│   │   ├── session.go    # Session-related constants
+│   │   └── wireguard.go  # WireGuard network constants
+│   └── vpn/              # VPN functionality
+│       ├── client.go     # Certificate generation
+│       └── servers.go    # Server selection logic
 ├── pkg/                  # Public packages
-│   └── wireguard/        # WireGuard configuration generation
+│   ├── timeutil/         # Time and duration utilities
+│   │   ├── formatter.go  # Duration formatting
+│   │   └── parser.go     # Duration parsing
+│   ├── validation/       # Input validation
+│   │   └── validation.go # Username and country code validation
+│   └── wireguard/        # WireGuard configuration
+│       ├── config.go     # Config file generation
+│       └── config_test.go # Config generation tests
 ├── vendor/               # Vendored dependencies
 ├── Makefile              # Build automation
+├── go.mod                # Go module definition
+├── go.sum                # Module checksums
 └── README.md             # This file
 ```
 
