@@ -17,7 +17,7 @@ A Go program that generates WireGuard configuration files for ProtonVPN servers 
 
 1. Clone the repository:
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/hatemosphere/protonvpn-wg-config-generate
 cd protonvpn-wg-config-generate
 ```
 
