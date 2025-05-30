@@ -140,7 +140,7 @@ Import the configuration file into your WireGuard client.
 
 ## Requirements
 
-- Go 1.23 or higher
+- Go 1.24 or higher
 - ProtonVPN account with Plus subscription (for P2P servers)
 
 ## Security Notes
