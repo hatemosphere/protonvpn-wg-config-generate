@@ -22,7 +22,7 @@ func NewConfigGenerator(cfg *config.Config) *ConfigGenerator {
 // Generate creates a WireGuard configuration file
 func (g *ConfigGenerator) Generate(server *api.LogicalServer, physicalServer *api.PhysicalServer, privateKey string) error {
 	content := g.buildConfig(server, physicalServer, privateKey)
-	
+
 	if err := os.WriteFile(g.config.OutputFile, []byte(content), 0600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
@@ -32,7 +32,7 @@ func (g *ConfigGenerator) Generate(server *api.LogicalServer, physicalServer *ap
 
 func (g *ConfigGenerator) buildConfig(server *api.LogicalServer, physicalServer *api.PhysicalServer, privateKey string) string {
 	addressLine := g.buildAddressLine()
-	
+
 	return fmt.Sprintf(`[Interface]
 PrivateKey = %s
 %s

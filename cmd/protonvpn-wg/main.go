@@ -79,7 +79,7 @@ func run() error {
 	}
 
 	fmt.Printf("WireGuard configuration written to: %s\n", cfg.OutputFile)
-	
+
 	// Note about persistence
 	if vpnInfo.DeviceName != "" {
 		fmt.Printf("Device name: %s (visible in ProtonVPN dashboard)\n", vpnInfo.DeviceName)

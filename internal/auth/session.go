@@ -13,9 +13,6 @@ import (
 const (
 	sessionFileName = ".protonvpn-session.json"
 	sessionFileMode = 0600 // Read/write for owner only
-	
-	// Maximum reasonable session duration (10 years for "no expiration")
-	maxSessionDuration = 10 * 365 * 24 * time.Hour
 )
 
 // SessionStore handles persistent session storage
@@ -30,7 +27,7 @@ func NewSessionStore() *SessionStore {
 		// Fallback to current directory
 		homeDir = "."
 	}
-	
+
 	return &SessionStore{
 		filePath: filepath.Join(homeDir, sessionFileName),
 	}
@@ -44,18 +41,17 @@ type SavedSession struct {
 	ExpiresAt time.Time    `json:"expires_at"`
 }
 
-
 // Save stores the session to disk
 func (s *SessionStore) Save(session *api.Session, username string, duration time.Duration) error {
 	savedSession := &SavedSession{
-		Session:   session,
-		Username:  username,
-		SavedAt:   time.Now(),
+		Session:  session,
+		Username: username,
+		SavedAt:  time.Now(),
 	}
-	
+
 	// Calculate expiration based on API response
 	apiExpiration := time.Now().Add(time.Duration(session.ExpiresIn) * time.Second)
-	
+
 	if duration == 0 {
 		// Use the API's expiration
 		savedSession.ExpiresAt = apiExpiration
@@ -68,17 +64,17 @@ func (s *SessionStore) Save(session *api.Session, username string, duration time
 			savedSession.ExpiresAt = userExpiration
 		}
 	}
-	
+
 	data, err := json.MarshalIndent(savedSession, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal session: %w", err)
 	}
-	
+
 	err = os.WriteFile(s.filePath, data, sessionFileMode)
 	if err != nil {
 		return fmt.Errorf("failed to write session file: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -91,18 +87,18 @@ func (s *SessionStore) Load(username string) (*api.Session, time.Duration, error
 		}
 		return nil, 0, fmt.Errorf("failed to read session file: %w", err)
 	}
-	
+
 	var savedSession SavedSession
 	err = json.Unmarshal(data, &savedSession)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to unmarshal session: %w", err)
 	}
-	
+
 	// Check if session is for the same user
 	if savedSession.Username != username {
 		return nil, 0, nil
 	}
-	
+
 	// Check if session has expired
 	now := time.Now()
 	if now.After(savedSession.ExpiresAt) {
@@ -110,10 +106,10 @@ func (s *SessionStore) Load(username string) (*api.Session, time.Duration, error
 		_ = s.Delete()
 		return nil, 0, nil
 	}
-	
+
 	// Calculate time until expiration
 	timeUntilExpiry := savedSession.ExpiresAt.Sub(now)
-	
+
 	return savedSession.Session, timeUntilExpiry, nil
 }
 

@@ -55,11 +55,11 @@ func (c *Client) GetCertificate(keyPair *ed25519.KeyPair) (*api.VPNInfo, error) 
 		"DeviceName":          deviceName,
 		"Duration":            duration,
 		"Features": map[string]interface{}{
-			"netshield-level":  0,
-			"moderate-nat":     false,
-			"port-forwarding":  false,
-			"vpn-accelerator":  c.config.EnableAccelerator,
-			"bouncing":         c.config.EnableAccelerator,
+			"netshield-level": 0,
+			"moderate-nat":    false,
+			"port-forwarding": false,
+			"vpn-accelerator": c.config.EnableAccelerator,
+			"bouncing":        c.config.EnableAccelerator,
 		},
 	}
 
@@ -79,7 +79,7 @@ func (c *Client) GetCertificate(keyPair *ed25519.KeyPair) (*api.VPNInfo, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -111,7 +111,7 @@ func (c *Client) GetServers() ([]api.LogicalServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

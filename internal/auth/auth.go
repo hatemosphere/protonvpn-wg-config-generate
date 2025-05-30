@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -134,7 +135,7 @@ func (c *Client) Authenticate() (*api.Session, error) {
 			fmt.Printf("Warning: Invalid session duration, using default: %v\n", err)
 			sessionDuration = 0 // Default to no expiration
 		}
-		
+
 		if err := c.sessionStore.Save(session, c.config.Username, sessionDuration); err != nil {
 			fmt.Printf("Warning: Failed to save session: %v\n", err)
 		}
@@ -178,7 +179,7 @@ func (c *Client) getAuthInfo() (*api.AuthInfoResponse, error) {
 		"Username": c.config.Username,
 		"Intent":   "Proton",
 	}
-	
+
 	body, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, err
@@ -195,7 +196,7 @@ func (c *Client) getAuthInfo() (*api.AuthInfoResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -243,7 +244,7 @@ func (c *Client) sendAuthRequest(authReq map[string]interface{}) (*api.Session, 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -253,7 +254,6 @@ func (c *Client) sendAuthRequest(authReq map[string]interface{}) (*api.Session, 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("authentication HTTP error %d: %s", resp.StatusCode, string(respBody))
 	}
-
 
 	var session api.Session
 	if err := json.Unmarshal(respBody, &session); err != nil {
@@ -267,7 +267,7 @@ func (c *Client) sendAuthRequest(authReq map[string]interface{}) (*api.Session, 
 
 	if session.Code != 1000 {
 		errMsg := c.getErrorMessage(session.Code)
-		return nil, fmt.Errorf(errMsg)
+		return nil, errors.New(errMsg)
 	}
 
 	return &session, nil
@@ -303,23 +303,23 @@ func (c *Client) verifySession(session *api.Session) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", session.AccessToken))
 	req.Header.Set("x-pm-uid", session.UID)
 	req.Header.Set("x-pm-appversion", "linux-vpn@4.2.0")
 	req.Header.Set("User-Agent", "ProtonVPN/4.2.0 (Linux; Ubuntu)")
-	
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
-	
+	defer func() { _ = resp.Body.Close() }()
+
 	// If we get a 401, the session is invalid
 	if resp.StatusCode == http.StatusUnauthorized {
 		return false
 	}
-	
+
 	// Any 2xx response means the session is valid
 	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
@@ -329,12 +329,12 @@ func humanizeDuration(d time.Duration) string {
 	if d < 0 {
 		return "expired"
 	}
-	
+
 	// Less than a minute
 	if d < time.Minute {
 		return "less than a minute"
 	}
-	
+
 	// Less than an hour
 	if d < time.Hour {
 		minutes := int(d.Minutes())
@@ -343,7 +343,7 @@ func humanizeDuration(d time.Duration) string {
 		}
 		return fmt.Sprintf("%d minutes", minutes)
 	}
-	
+
 	// Less than a day
 	if d < 24*time.Hour {
 		hours := int(d.Hours())
@@ -356,11 +356,11 @@ func humanizeDuration(d time.Duration) string {
 		}
 		return fmt.Sprintf("%d hours %d minutes", hours, minutes)
 	}
-	
+
 	// Days
 	days := int(d.Hours() / 24)
 	hours := int(d.Hours()) % 24
-	
+
 	// Less than a week
 	if days < 7 {
 		if days == 1 && hours == 0 {
@@ -371,7 +371,7 @@ func humanizeDuration(d time.Duration) string {
 		}
 		return fmt.Sprintf("%d days %d hours", days, hours)
 	}
-	
+
 	// Weeks to months
 	if days < 30 {
 		weeks := days / 7
@@ -384,7 +384,7 @@ func humanizeDuration(d time.Duration) string {
 		}
 		return fmt.Sprintf("%d weeks %d days", weeks, remainingDays)
 	}
-	
+
 	// Months to years
 	if days < 365 {
 		months := days / 30
@@ -397,7 +397,7 @@ func humanizeDuration(d time.Duration) string {
 		}
 		return fmt.Sprintf("%d months %d days", months, remainingDays)
 	}
-	
+
 	// Years
 	years := days / 365
 	remainingDays := days % 365

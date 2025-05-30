@@ -32,7 +32,7 @@ type Config struct {
 // Parse parses command-line flags and returns a Config
 func Parse() (*Config, error) {
 	cfg := &Config{}
-	
+
 	var countriesFlag string
 	var dnsServersFlag string
 	var allowedIPsFlag string
@@ -108,25 +108,25 @@ func ParseDuration(durationStr string) (string, error) {
 		minutes := days * 24 * 60
 		return fmt.Sprintf("%d min", minutes), nil
 	}
-	
+
 	// Try parsing as a Go duration
 	duration, err := time.ParseDuration(durationStr)
 	if err != nil {
 		return "", fmt.Errorf("invalid duration format: %s", durationStr)
 	}
-	
+
 	// Convert to minutes
 	minutes := int(duration.Minutes())
 	if minutes < 1 {
 		return "", fmt.Errorf("duration must be at least 1 minute")
 	}
-	
+
 	// Max 365 days = 525600 minutes
 	maxMinutes := 365 * 24 * 60
 	if minutes > maxMinutes {
 		return "", fmt.Errorf("duration cannot exceed 365 days")
 	}
-	
+
 	return fmt.Sprintf("%d min", minutes), nil
 }
 
@@ -136,10 +136,10 @@ func ParseSessionDuration(durationStr string) (time.Duration, error) {
 	if durationStr == "0" {
 		return 0, nil
 	}
-	
+
 	var duration time.Duration
 	var err error
-	
+
 	// Handle simple formats like "7d", "30d"
 	if strings.HasSuffix(durationStr, "d") {
 		daysStr := strings.TrimSuffix(durationStr, "d")
@@ -155,12 +155,12 @@ func ParseSessionDuration(durationStr string) (time.Duration, error) {
 			return 0, fmt.Errorf("invalid session duration format: %s", durationStr)
 		}
 	}
-	
+
 	// Validate max duration (30 days)
 	maxDuration := 30 * 24 * time.Hour
 	if duration > maxDuration {
 		return 0, fmt.Errorf("session duration cannot exceed 30 days (got: %s)", duration)
 	}
-	
+
 	return duration, nil
 }

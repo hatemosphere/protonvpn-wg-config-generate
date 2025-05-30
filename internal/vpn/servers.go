@@ -1,6 +1,7 @@
 package vpn
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 
@@ -21,7 +22,7 @@ func NewServerSelector(cfg *config.Config) *ServerSelector {
 // SelectBest selects the best server based on configuration
 func (s *ServerSelector) SelectBest(servers []api.LogicalServer) (*api.LogicalServer, error) {
 	filtered := s.filterServers(servers)
-	
+
 	if len(filtered) == 0 {
 		return nil, s.buildNoServersError()
 	}
@@ -91,16 +92,16 @@ func (s *ServerSelector) isCountryMatch(server api.LogicalServer) bool {
 
 func (s *ServerSelector) buildNoServersError() error {
 	errMsg := fmt.Sprintf("No suitable servers found for countries: %v", s.config.Countries)
-	
+
 	if s.config.P2PServersOnly {
 		errMsg += " with P2P support"
 	}
-	
+
 	if s.config.PlusServersOnly {
 		errMsg += " (Plus tier)"
 	}
-	
-	return fmt.Errorf(errMsg)
+
+	return errors.New(errMsg)
 }
 
 // GetBestPhysicalServer returns the best physical server from a logical server

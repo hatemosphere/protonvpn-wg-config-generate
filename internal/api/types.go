@@ -25,18 +25,18 @@ type AuthRequest struct {
 
 // Session represents a ProtonVPN session
 type Session struct {
-	Code               int      `json:"Code"`
-	AccessToken        string   `json:"AccessToken"`
-	RefreshToken       string   `json:"RefreshToken"`
-	TokenType          string   `json:"TokenType"`
-	Scopes             []string `json:"Scopes"`
-	UID                string   `json:"UID"`
-	UserID             string   `json:"UserID"`
-	EventID            string   `json:"EventID"`
-	ServerProof        string   `json:"ServerProof"`
-	PasswordMode       int      `json:"PasswordMode"`
-	ExpiresIn          int      `json:"ExpiresIn"` // Session expiration in seconds
-	TwoFA              struct {
+	Code         int      `json:"Code"`
+	AccessToken  string   `json:"AccessToken"`
+	RefreshToken string   `json:"RefreshToken"`
+	TokenType    string   `json:"TokenType"`
+	Scopes       []string `json:"Scopes"`
+	UID          string   `json:"UID"`
+	UserID       string   `json:"UserID"`
+	EventID      string   `json:"EventID"`
+	ServerProof  string   `json:"ServerProof"`
+	PasswordMode int      `json:"PasswordMode"`
+	ExpiresIn    int      `json:"ExpiresIn"` // Session expiration in seconds
+	TwoFA        struct {
 		Enabled int `json:"Enabled"`
 		TOTP    int `json:"TOTP"`
 	} `json:"2FA"`
@@ -44,7 +44,7 @@ type Session struct {
 
 // VPNInfo represents VPN certificate information
 type VPNInfo struct {
-	Code                  int    `json:"Code"`
+	Code                 int    `json:"Code"`
 	SerialNumber         string `json:"SerialNumber"`
 	ClientKeyFingerprint string `json:"ClientKeyFingerprint"`
 	ClientKey            string `json:"ClientKey"`
@@ -56,30 +56,30 @@ type VPNInfo struct {
 	ServerPublicKeyMode  string `json:"ServerPublicKeyMode"`
 	ServerPublicKey      string `json:"ServerPublicKey"`
 	Features             struct {
-		Bouncing         bool `json:"bouncing"`
-		ModerateNAT      bool `json:"moderate-nat"`
-		NetshieldLevel   int  `json:"netshield-level"`
-		PortForwarding   bool `json:"port-forwarding"`
-		VPNAccelerator   bool `json:"vpn-accelerator"`
+		Bouncing       bool `json:"bouncing"`
+		ModerateNAT    bool `json:"moderate-nat"`
+		NetshieldLevel int  `json:"netshield-level"`
+		PortForwarding bool `json:"port-forwarding"`
+		VPNAccelerator bool `json:"vpn-accelerator"`
 	} `json:"Features"`
 }
 
 // LogicalServer represents a ProtonVPN logical server
 type LogicalServer struct {
-	ID           string `json:"ID"`
-	Name         string `json:"Name"`
-	EntryCountry string `json:"EntryCountry"`
-	ExitCountry  string `json:"ExitCountry"`
-	Domain       string `json:"Domain"`
-	Tier         int    `json:"Tier"`
-	Features     int    `json:"Features"`
-	Region       string `json:"Region"`
-	City         string `json:"City"`
-	Score        float64 `json:"Score"`
-	Load         int     `json:"Load"`
-	Status       int     `json:"Status"`
+	ID           string           `json:"ID"`
+	Name         string           `json:"Name"`
+	EntryCountry string           `json:"EntryCountry"`
+	ExitCountry  string           `json:"ExitCountry"`
+	Domain       string           `json:"Domain"`
+	Tier         int              `json:"Tier"`
+	Features     int              `json:"Features"`
+	Region       string           `json:"Region"`
+	City         string           `json:"City"`
+	Score        float64          `json:"Score"`
+	Load         int              `json:"Load"`
+	Status       int              `json:"Status"`
 	Servers      []PhysicalServer `json:"Servers"`
-	HostCountry  string `json:"HostCountry"`
+	HostCountry  string           `json:"HostCountry"`
 	Location     struct {
 		Lat  float64 `json:"Lat"`
 		Long float64 `json:"Long"`
