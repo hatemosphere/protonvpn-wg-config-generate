@@ -10,6 +10,5 @@ const (
 
 // Server selection defaults
 const (
-	DefaultPlusOnly = true
-	DefaultP2POnly  = true
+	DefaultP2POnly = true
 )

@@ -58,8 +58,8 @@ func (s *ServerSelector) isServerEligible(server api.LogicalServer) bool {
 		return false
 	}
 
-	// Filter by Plus tier if requested
-	if s.config.PlusServersOnly && server.Tier != api.TierPlus {
+	// Filter out free tier servers
+	if server.Tier == api.TierFree {
 		return false
 	}
 
@@ -95,10 +95,6 @@ func (s *ServerSelector) buildNoServersError() error {
 
 	if s.config.P2PServersOnly {
 		errMsg += " with P2P support"
-	}
-
-	if s.config.PlusServersOnly {
-		errMsg += " (Plus tier)"
 	}
 
 	return errors.New(errMsg)

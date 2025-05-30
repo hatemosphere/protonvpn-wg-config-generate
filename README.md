@@ -13,7 +13,8 @@ The motivation to write this was simple - I wanted to automatically rotate VPN s
 - Supports 2FA authentication
 - Creates persistent WireGuard configurations (visible in ProtonVPN dashboard)
 - Automatically selects the best server (highest score, lowest load) from specified countries
-- Filters servers by tier (Plus/Free) and features (P2P support)
+- Excludes free tier servers (uses Plus and ProtonMail tier servers)
+- Filters servers by features (P2P support)
 - Generates WireGuard configuration files
 - Supports VPN accelerator feature
 - IPv6 support
@@ -47,7 +48,6 @@ go build -o protonvpn-wg-config-generate
 - `-allowed-ips`: Comma-separated list of allowed IPs (defaults based on IPv6 setting)
 - `-accelerator`: Enable VPN accelerator (default: true)
 - `-api-url`: ProtonVPN API URL (default: https://vpn-api.proton.me)
-- `-plus-only`: Use only Plus servers (default: true)
 - `-p2p-only`: Use only P2P-enabled servers (default: true)
 - `-device-name`: Device name for WireGuard config (auto-generated if empty)
 - `-duration`: Certificate duration (default: 365d). Examples: 30m, 24h, 7d, 1h30m. Maximum: 365d
@@ -146,7 +146,7 @@ Import the configuration file into your WireGuard client.
 ## Requirements
 
 - Go 1.24 or higher
-- ProtonVPN account with Plus subscription (for P2P servers)
+- ProtonVPN account with Plus or ProtonMail subscription (free tier servers are excluded)
 
 ## Security Notes
 

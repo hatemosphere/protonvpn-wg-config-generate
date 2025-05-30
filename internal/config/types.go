@@ -9,9 +9,8 @@ type Config struct {
 	Password string
 
 	// Server selection
-	Countries       []string
-	PlusServersOnly bool
-	P2PServersOnly  bool
+	Countries      []string
+	P2PServersOnly bool
 
 	// Output configuration
 	OutputFile       string

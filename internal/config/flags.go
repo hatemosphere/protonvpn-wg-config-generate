@@ -29,7 +29,6 @@ func Parse() (*Config, error) {
 
 	// Server selection flags
 	flag.StringVar(&countriesFlag, "countries", "", "Comma-separated list of country codes (e.g., US,NL,CH)")
-	flag.BoolVar(&cfg.PlusServersOnly, "plus-only", constants.DefaultPlusOnly, "Use only Plus servers (Tier 2)")
 	flag.BoolVar(&cfg.P2PServersOnly, "p2p-only", constants.DefaultP2POnly, "Use only P2P-enabled servers")
 
 	// Output configuration
