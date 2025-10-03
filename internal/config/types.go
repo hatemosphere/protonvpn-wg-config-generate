@@ -12,6 +12,7 @@ type Config struct {
 	Countries      []string
 	P2PServersOnly bool
 	SecureCoreOnly bool
+	FreeOnly       bool
 
 	// Output configuration
 	OutputFile       string

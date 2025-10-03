@@ -63,13 +63,21 @@ func (s *ServerSelector) isServerEligible(server api.LogicalServer) bool {
 		return false
 	}
 
-	// Filter out free tier servers
-	if server.Tier == api.TierFree {
-		return false
+	// Filter by tier based on -free-only flag
+	if s.config.FreeOnly {
+		// When free-only is enabled, only accept Free tier servers
+		if server.Tier != api.TierFree {
+			return false
+		}
+	} else {
+		// Otherwise, filter out free tier servers
+		if server.Tier == api.TierFree {
+			return false
+		}
 	}
 
-	// Filter by P2P support if requested (but not when using Secure Core)
-	if s.config.P2PServersOnly && !s.config.SecureCoreOnly && server.Features&api.FeatureP2P == 0 {
+	// Filter by P2P support if requested (but not when using Secure Core or Free tier)
+	if s.config.P2PServersOnly && !s.config.SecureCoreOnly && !s.config.FreeOnly && server.Features&api.FeatureP2P == 0 {
 		return false
 	}
 
