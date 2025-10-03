@@ -13,8 +13,8 @@ The motivation to write this was simple - I wanted to automatically rotate VPN s
 - Supports 2FA authentication
 - Creates persistent WireGuard configurations (visible in ProtonVPN dashboard)
 - Automatically selects the best server (highest score, lowest load) from specified countries
-- Excludes free tier servers (uses Plus and ProtonMail tier servers)
-- Filters servers by features (P2P support)
+- Supports both Free tier and paid tier servers (Plus and ProtonMail)
+- Filters servers by features (P2P support, Secure Core)
 - Generates WireGuard configuration files
 - Supports VPN accelerator feature
 - IPv6 support
@@ -50,6 +50,7 @@ go build -o protonvpn-wg-config-generate
 - `-api-url`: ProtonVPN API URL (default: https://vpn-api.proton.me)
 - `-p2p-only`: Use only P2P-enabled servers (default: true)
 - `-secure-core`: Use only Secure Core servers for multi-hop VPN (default: false)
+- `-free-only`: Use only Free tier servers (tier 0) (default: false)
 - `-device-name`: Device name for WireGuard config (auto-generated if empty)
 - `-debug`: Enable debug output showing all filtered servers (default: false)
 - `-duration`: Certificate duration (default: 365d). Examples: 30m, 24h, 7d, 1h30m. Maximum: 365d
@@ -103,6 +104,11 @@ go build -o protonvpn-wg-config-generate
 9. Debug mode to see all available servers:
 ```bash
 ./protonvpn-wg-config-generate -username myusername -countries US -debug
+```
+
+10. Use Free tier servers only:
+```bash
+./protonvpn-wg-config-generate -username myusername -countries US,NL -free-only
 ```
 
 ## IPv6 Support
@@ -171,10 +177,22 @@ sudo wg-quick up ./protonvpn.conf
 ### Windows/GUI clients
 Import the configuration file into your WireGuard client.
 
+## Server Tier Support
+
+By default, the tool excludes Free tier servers and only uses paid tier servers (Plus and ProtonMail):
+- **Free tier (tier 0)**: Available with `-free-only` flag. Limited server selection, no P2P support
+- **Plus tier (tier 2)**: Default. Full feature support including P2P and Secure Core
+- **ProtonMail tier (tier 3)**: Default. Included with Proton bundle subscriptions
+
+**Important Notes:**
+- When using `-free-only`, P2P filtering is automatically disabled since Free servers don't support P2P
+- Free tier servers have limited availability and may have higher load
+- Secure Core requires Plus or higher subscription
+
 ## Requirements
 
-- Go 1.24 or higher
-- ProtonVPN account with Plus or ProtonMail subscription (free tier servers are excluded)
+- Go 1.25 or higher
+- ProtonVPN account (Free tier or paid subscription)
 
 ## Security Notes
 
