@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/ProtonMail/go-srp"
@@ -215,7 +214,7 @@ func (c *Client) ensureUsername() error {
 func (c *Client) ensurePassword() error {
 	if c.config.Password == "" {
 		fmt.Print("Password: ")
-		passwordBytes, err := term.ReadPassword(syscall.Stdin)
+		passwordBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 		fmt.Println()
 		if err != nil {
 			return fmt.Errorf("error reading password: %w", err)
