@@ -257,7 +257,22 @@ func (c *Client) get2FACode() (string, error) {
 	fmt.Print("2FA Code: ")
 	reader := bufio.NewReader(os.Stdin)
 	code, _ := reader.ReadString('\n')
-	return strings.TrimSpace(code), nil
+	code = strings.TrimSpace(code)
+
+	// Validate that code is numeric (TOTP codes are 6 digits)
+	if code == "" {
+		return "", fmt.Errorf("2FA code cannot be empty")
+	}
+
+	for _, c := range code {
+		if c < '0' || c > '9' {
+			return "", fmt.Errorf("2FA code must be numeric (TOTP only).\n" +
+				"FIDO2/WebAuthn security keys are not supported.\n" +
+				"Please ensure you have TOTP (authenticator app) configured as your 2FA method")
+		}
+	}
+
+	return code, nil
 }
 
 func (c *Client) getAuthInfo() (*api.AuthInfoResponse, error) {

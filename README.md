@@ -10,7 +10,7 @@ The motivation to write this was simple - I wanted to automatically rotate VPN s
 
 - Authenticates with ProtonVPN using username/password
 - Opnionally persists and refreshes login session, to function in headless mode after entering password once
-- Supports 2FA authentication
+- Supports 2FA authentication (TOTP only, no FIDO2/security keys)
 - Creates persistent WireGuard configurations (visible in ProtonVPN dashboard)
 - Automatically selects the best server (highest score, lowest load) from specified countries
 - Supports both Free tier and paid tier servers (Plus and ProtonMail)
@@ -149,7 +149,13 @@ Secure Core is ProtonVPN's premium feature that routes your traffic through mult
 The program supports the following authentication methods:
 
 1. **Username/Password**: Enter your ProtonVPN credentials
-2. **2FA**: If enabled, you'll be prompted for your 2FA code
+2. **2FA (TOTP only)**: If enabled, you'll be prompted for your 6-digit authenticator code
+
+**Important 2FA Limitation:** This tool only supports **TOTP-based 2FA** (authenticator apps like Google Authenticator, Authy, 1Password, etc.). **FIDO2/WebAuthn security keys are NOT supported** because they require browser/platform APIs for the challenge-response protocol.
+
+If you use a security key as your only 2FA method, you have two options:
+- Add TOTP as an additional 2FA method in your [Proton account security settings](https://account.proton.me/u/0/vpn/account-password)
+- Use a security key that also supports TOTP (like YubiKey with Yubico Authenticator)
 
 ### Session Persistence
 
