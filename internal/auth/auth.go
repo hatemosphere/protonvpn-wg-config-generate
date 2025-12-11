@@ -184,6 +184,35 @@ func (c *Client) Authenticate() (*api.Session, error) {
 		return nil, fmt.Errorf("server proof verification failed")
 	}
 
+	// Check if session has VPN scope (requires 2FA for accounts with 2FA enabled)
+	hasVPNScope := false
+	hasTwoFactorScope := false
+	for _, scope := range session.Scopes {
+		if scope == "vpn" {
+			hasVPNScope = true
+		}
+		if scope == "twofactor" {
+			hasTwoFactorScope = true
+		}
+	}
+
+	// If no VPN scope but account has 2FA (twofactor scope), we need to upgrade session with 2FA
+	if !hasVPNScope && hasTwoFactorScope {
+		fmt.Println("Session lacks VPN scope - 2FA verification required to upgrade session...")
+		code, err := c.get2FACode()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get 2FA code: %w", err)
+		}
+
+		// Upgrade session with 2FA
+		updatedScopes, err := c.submit2FA(session, code)
+		if err != nil {
+			return nil, fmt.Errorf("2FA verification failed: %w", err)
+		}
+		session.Scopes = updatedScopes
+		fmt.Println("2FA verified - session upgraded with VPN scope")
+	}
+
 	// Save the session for future use (unless disabled)
 	if !c.config.NoSession {
 		// Parse session duration
@@ -317,9 +346,16 @@ func (c *Client) sendAuthRequest(authReq map[string]interface{}) (*api.Session, 
 		return nil, err
 	}
 
-	// Handle mailbox password (should not be needed with single password mode)
+	// Handle mailbox password request (2-password mode)
+	// Code 10013 means the account uses legacy 2-password mode which requires a separate mailbox password
+	// VPN doesn't need mailbox decryption, but the auth flow requires completing it
 	if session.Code == 10013 {
-		return nil, fmt.Errorf("unexpected mailbox password request - account might still be in 2-password mode")
+		return nil, fmt.Errorf("your account uses legacy 2-password mode which is not supported.\n" +
+			"Please switch to single-password mode:\n" +
+			"  1. Go to account.proton.me\n" +
+			"  2. Settings → All settings → Account and password → Passwords\n" +
+			"  3. Switch to 'One-password mode'\n" +
+			"This is recommended by Proton for most users and is required for this tool")
 	}
 
 	if session.Code != 1000 {
@@ -333,4 +369,62 @@ func (c *Client) setHeaders(req *http.Request) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-pm-appversion", constants.AppVersion)
 	req.Header.Set("User-Agent", constants.UserAgent)
+}
+
+// submit2FA submits a 2FA code to upgrade the session with additional scopes (like VPN)
+func (c *Client) submit2FA(session *api.Session, code string) ([]string, error) {
+	reqBody := map[string]interface{}{
+		"TwoFactorCode": code,
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", c.config.APIURL+"/core/v4/auth/2fa", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+
+	// Need to include auth headers for 2FA upgrade
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", session.AccessToken))
+	req.Header.Set("x-pm-uid", session.UID)
+	req.Header.Set("x-pm-appversion", constants.AppVersion)
+	req.Header.Set("User-Agent", constants.UserAgent)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("2FA HTTP error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	// Parse response to get updated scopes
+	var twoFAResp struct {
+		Code   int      `json:"Code"`
+		Scopes []string `json:"Scopes"`
+		Error  string   `json:"Error,omitempty"`
+	}
+	if err := json.Unmarshal(respBody, &twoFAResp); err != nil {
+		return nil, fmt.Errorf("failed to parse 2FA response: %w", err)
+	}
+
+	if twoFAResp.Code != 1000 {
+		if twoFAResp.Error != "" {
+			return nil, fmt.Errorf("2FA failed (code %d): %s", twoFAResp.Code, twoFAResp.Error)
+		}
+		return nil, NewError(twoFAResp.Code)
+	}
+
+	return twoFAResp.Scopes, nil
 }

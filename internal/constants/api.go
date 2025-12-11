@@ -13,6 +13,6 @@ const (
 
 // API version headers
 const (
-	AppVersion = "linux-vpn@4.2.0"
-	UserAgent  = "ProtonVPN/4.2.0 (Linux; Ubuntu)"
+	AppVersion = "linux-vpn@4.12.0"
+	UserAgent  = "ProtonVPN/4.12.0 (Linux; Ubuntu)"
 )

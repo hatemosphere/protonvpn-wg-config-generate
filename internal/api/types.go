@@ -46,6 +46,7 @@ type Session struct {
 // VPNInfo represents VPN certificate information
 type VPNInfo struct {
 	Code                 int    `json:"Code"`
+	Error                string `json:"Error,omitempty"`
 	SerialNumber         string `json:"SerialNumber"`
 	ClientKeyFingerprint string `json:"ClientKeyFingerprint"`
 	ClientKey            string `json:"ClientKey"`

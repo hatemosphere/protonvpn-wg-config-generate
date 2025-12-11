@@ -144,11 +144,12 @@ Secure Core is ProtonVPN's premium feature that routes your traffic through mult
 
 ## Authentication
 
+**Important:** This tool only works with Proton accounts configured in [Single Password Mode](https://proton.me/support/single-password). This is the default for all new Proton accounts. If your account uses the legacy 2-password mode (separate login and mailbox passwords), you'll need to switch to single password mode first.
+
 The program supports the following authentication methods:
 
 1. **Username/Password**: Enter your ProtonVPN credentials
 2. **2FA**: If enabled, you'll be prompted for your 2FA code
-3. **Mailbox Password**: If you have a second password, you'll be prompted for it
 
 ### Session Persistence
 
@@ -284,6 +285,23 @@ If you see "This version of the app is no longer supported":
 - The app version headers are hardcoded and may become outdated
 - Check ProtonVPN forums or GitHub for current working versions
 - The tool currently uses `linux-vpn@4.2.0`
+
+### Two-Password Mode Error (Code 10013)
+
+If you see "unexpected mailbox password request - account might still be in 2-password mode":
+- Your Proton account is using the legacy 2-password mode (separate login and mailbox passwords)
+- This tool only supports [Single Password Mode](https://proton.me/support/single-password)
+- To switch: Go to Proton account settings → Security → Password mode → Switch to single password
+- Note: Single password mode is the default for all new Proton accounts since ~2020
+
+### 2FA Required for VPN (Error 9100)
+
+If authentication succeeds but you get error 9100 when getting the VPN certificate:
+- Your account has 2FA enabled, but ProtonVPN's device trust mechanism allowed login without 2FA
+- The VPN certificate endpoint requires a session that was authenticated with 2FA
+- **Solution**: Run with `-clear-session` flag to force re-authentication, which should prompt for 2FA
+- If 2FA prompt still doesn't appear, try from a different IP/network to bypass device trust
+- This can also occur if your account uses 2-password mode (see error 10013 above)
 
 ## License
 

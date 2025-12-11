@@ -8,6 +8,7 @@ const (
 	CodeWrongPassword        = 8002
 	CodeWrongPasswordFormat  = 8004 // Different error code for password format
 	CodeCaptchaRequired      = 9001
+	Code2FARequiredForVPN    = 9100 // 2FA required for VPN operations (session lacks 2FA scope)
 	Code2FARequired          = 10002
 	CodeInvalid2FA           = 10003
 	CodeMailboxPasswordError = 10013
@@ -42,12 +43,14 @@ func getErrorMessage(code int) string {
 		return "password format is incorrect"
 	case CodeCaptchaRequired:
 		return "CAPTCHA verification required"
+	case Code2FARequiredForVPN:
+		return "2FA required for VPN operations - your session was authenticated without 2FA (device trust). Use -clear-session to force re-authentication with 2FA"
 	case Code2FARequired:
 		return "2FA code is required"
 	case CodeInvalid2FA:
 		return "invalid 2FA code"
 	case CodeMailboxPasswordError:
-		return "unexpected mailbox password request - account might still be in 2-password mode"
+		return "account uses legacy 2-password mode - please switch to single-password mode at account.proton.me"
 	default:
 		return fmt.Sprintf("authentication failed with code: %d", code)
 	}

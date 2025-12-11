@@ -96,6 +96,10 @@ func (c *Client) GetCertificate(keyPair *ed25519.KeyPair) (*api.VPNInfo, error) 
 	}
 
 	if vpnInfo.Code != 1000 {
+		// Include the actual API error message if available
+		if vpnInfo.Error != "" {
+			return nil, fmt.Errorf("VPN certificate error (code %d): %s", vpnInfo.Code, vpnInfo.Error)
+		}
 		return nil, fmt.Errorf("failed to get VPN certificate, code: %d", vpnInfo.Code)
 	}
 
