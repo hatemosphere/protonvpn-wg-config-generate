@@ -7,6 +7,8 @@ import (
 )
 
 // formatDaysHoursMinutes formats days, hours, and minutes into a string
+//
+//nolint:gocyclo // Formatting function with many output cases
 func formatDaysHoursMinutes(days, hours, minutes int) string {
 	if days < 7 {
 		if days == 1 && hours == 0 && minutes == 0 {
@@ -67,6 +69,8 @@ func formatDaysHoursMinutes(days, hours, minutes int) string {
 // - Less than a week: "X days Y hours Z minutes"
 // - Less than a month: "X weeks Y days Z hours W minutes"
 // - Longer periods: months and years with appropriate detail
+//
+//nolint:gocyclo // Duration formatting requires many time-range cases
 func HumanizeDuration(d time.Duration) string {
 	if d < 0 {
 		return "expired"

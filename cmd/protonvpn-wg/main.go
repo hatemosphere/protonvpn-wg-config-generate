@@ -6,12 +6,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ProtonVPN/go-vpn-lib/ed25519"
 	"protonvpn-wg-config-generate/internal/api"
 	"protonvpn-wg-config-generate/internal/auth"
 	"protonvpn-wg-config-generate/internal/config"
 	"protonvpn-wg-config-generate/internal/vpn"
 	"protonvpn-wg-config-generate/pkg/wireguard"
+
+	"github.com/ProtonVPN/go-vpn-lib/ed25519"
 )
 
 func main() {

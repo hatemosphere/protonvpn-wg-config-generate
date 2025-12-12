@@ -1,11 +1,11 @@
 module protonvpn-wg-config-generate
 
-go 1.25.1
+go 1.25.5
 
 require (
 	github.com/ProtonMail/go-srp v0.0.7
-	github.com/ProtonVPN/go-vpn-lib v0.0.0-20250929095828-5684efdb2593
-	golang.org/x/term v0.35.0
+	github.com/ProtonVPN/go-vpn-lib v0.0.0-20251126054500-e7bed91ad40f
+	golang.org/x/term v0.38.0
 )
 
 require (
@@ -14,6 +14,6 @@ require (
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cronokirby/saferith v0.33.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	golang.org/x/crypto v0.42.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
+	golang.org/x/crypto v0.46.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
 )

@@ -1,10 +1,15 @@
 package auth
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+
+	"protonvpn-wg-config-generate/internal/constants"
+)
 
 // Error codes from ProtonVPN API
 const (
-	CodeSuccess              = 1000
+	CodeSuccess              = constants.APICodeSuccess
 	CodeWrongPassword        = 8002
 	CodeWrongPasswordFormat  = 8004 // Different error code for password format
 	CodeCaptchaRequired      = 9001
@@ -58,8 +63,8 @@ func getErrorMessage(code int) string {
 
 // Is2FAError checks if the error is a 2FA-related error
 func Is2FAError(err error) bool {
-	authErr, ok := err.(Error)
-	if !ok {
+	var authErr Error
+	if !errors.As(err, &authErr) {
 		return false
 	}
 	return authErr.Code == Code2FARequired || authErr.Code == CodeInvalid2FA
@@ -67,6 +72,9 @@ func Is2FAError(err error) bool {
 
 // IsCaptchaError checks if the error requires CAPTCHA verification
 func IsCaptchaError(err error) bool {
-	authErr, ok := err.(Error)
-	return ok && authErr.Code == CodeCaptchaRequired
+	var authErr Error
+	if !errors.As(err, &authErr) {
+		return false
+	}
+	return authErr.Code == CodeCaptchaRequired
 }

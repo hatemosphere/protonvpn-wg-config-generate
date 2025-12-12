@@ -14,12 +14,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ProtonMail/go-srp"
-	"golang.org/x/term"
 	"protonvpn-wg-config-generate/internal/api"
 	"protonvpn-wg-config-generate/internal/config"
 	"protonvpn-wg-config-generate/internal/constants"
 	"protonvpn-wg-config-generate/pkg/timeutil"
+
+	"github.com/ProtonMail/go-srp"
+	"golang.org/x/term"
 )
 
 // Client handles ProtonVPN authentication
@@ -109,6 +110,8 @@ func (c *Client) tryExistingSession() (*api.Session, error) {
 }
 
 // Authenticate performs the full authentication flow
+//
+//nolint:gocognit,gocyclo // Auth flow inherently complex due to multiple scenarios (2FA, session reuse, etc.)
 func (c *Client) Authenticate() (*api.Session, error) {
 	// Get username if not provided
 	if err := c.ensureUsername(); err != nil {
@@ -165,7 +168,7 @@ func (c *Client) Authenticate() (*api.Session, error) {
 	}
 
 	// Handle 2FA if needed
-	if authInfo.TwoFA.Enabled == 1 && authInfo.TwoFA.TOTP == 1 {
+	if authInfo.TwoFA.Enabled == constants.EnabledTrue && authInfo.TwoFA.TOTP == constants.EnabledTrue {
 		code, err := c.get2FACode()
 		if err != nil {
 			return nil, err
@@ -234,8 +237,14 @@ func (c *Client) ensureUsername() error {
 	if c.config.Username == "" {
 		fmt.Print("Username (without @protonmail.com): ")
 		reader := bufio.NewReader(os.Stdin)
-		username, _ := reader.ReadString('\n')
+		username, err := reader.ReadString('\n')
+		if err != nil {
+			return fmt.Errorf("error reading username: %w", err)
+		}
 		c.config.Username = strings.TrimSpace(username)
+		if c.config.Username == "" {
+			return fmt.Errorf("username cannot be empty")
+		}
 	}
 	return nil
 }
@@ -256,7 +265,10 @@ func (c *Client) ensurePassword() error {
 func (c *Client) get2FACode() (string, error) {
 	fmt.Print("2FA Code: ")
 	reader := bufio.NewReader(os.Stdin)
-	code, _ := reader.ReadString('\n')
+	code, err := reader.ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("error reading 2FA code: %w", err)
+	}
 	code = strings.TrimSpace(code)
 
 	// Validate that code is numeric (TOTP codes are 6 digits)
@@ -286,7 +298,7 @@ func (c *Client) getAuthInfo() (*api.AuthInfoResponse, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", c.config.APIURL+"/core/v4/auth/info", bytes.NewBuffer(body))
+	req, err := http.NewRequest(http.MethodPost, c.config.APIURL+"/core/v4/auth/info", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +325,7 @@ func (c *Client) getAuthInfo() (*api.AuthInfoResponse, error) {
 		return nil, fmt.Errorf("failed to parse auth info: %w", err)
 	}
 
-	if authInfo.Code != 1000 {
+	if authInfo.Code != CodeSuccess {
 		return nil, fmt.Errorf("failed to get auth info, code: %d", authInfo.Code)
 	}
 
@@ -334,7 +346,7 @@ func (c *Client) sendAuthRequest(authReq map[string]interface{}) (*api.Session, 
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", c.config.APIURL+"/core/v4/auth", bytes.NewBuffer(body))
+	req, err := http.NewRequest(http.MethodPost, c.config.APIURL+"/core/v4/auth", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +376,7 @@ func (c *Client) sendAuthRequest(authReq map[string]interface{}) (*api.Session, 
 	// Handle mailbox password request (2-password mode)
 	// Code 10013 means the account uses legacy 2-password mode which requires a separate mailbox password
 	// VPN doesn't need mailbox decryption, but the auth flow requires completing it
-	if session.Code == 10013 {
+	if session.Code == CodeMailboxPasswordError {
 		return nil, fmt.Errorf("your account uses legacy 2-password mode which is not supported.\n" +
 			"Please switch to single-password mode:\n" +
 			"  1. Go to account.proton.me\n" +
@@ -373,7 +385,7 @@ func (c *Client) sendAuthRequest(authReq map[string]interface{}) (*api.Session, 
 			"This is recommended by Proton for most users and is required for this tool")
 	}
 
-	if session.Code != 1000 {
+	if session.Code != CodeSuccess {
 		return nil, NewError(session.Code)
 	}
 
@@ -397,7 +409,7 @@ func (c *Client) submit2FA(session *api.Session, code string) ([]string, error) 
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", c.config.APIURL+"/core/v4/auth/2fa", bytes.NewBuffer(body))
+	req, err := http.NewRequest(http.MethodPost, c.config.APIURL+"/core/v4/auth/2fa", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +446,7 @@ func (c *Client) submit2FA(session *api.Session, code string) ([]string, error) 
 		return nil, fmt.Errorf("failed to parse 2FA response: %w", err)
 	}
 
-	if twoFAResp.Code != 1000 {
+	if twoFAResp.Code != CodeSuccess {
 		if twoFAResp.Error != "" {
 			return nil, fmt.Errorf("2FA failed (code %d): %s", twoFAResp.Code, twoFAResp.Error)
 		}

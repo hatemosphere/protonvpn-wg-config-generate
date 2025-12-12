@@ -16,3 +16,14 @@ const (
 	AppVersion = "linux-vpn@4.12.0"
 	UserAgent  = "ProtonVPN/4.12.0 (Linux; Ubuntu)"
 )
+
+// API response codes
+const (
+	APICodeSuccess = 1000
+)
+
+// Server/feature status values
+const (
+	StatusOnline = 1
+	EnabledTrue  = 1
+)

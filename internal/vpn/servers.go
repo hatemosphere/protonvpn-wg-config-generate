@@ -8,6 +8,7 @@ import (
 
 	"protonvpn-wg-config-generate/internal/api"
 	"protonvpn-wg-config-generate/internal/config"
+	"protonvpn-wg-config-generate/internal/constants"
 )
 
 // ServerSelector handles server selection logic
@@ -48,18 +49,18 @@ func (s *ServerSelector) SelectBest(servers []api.LogicalServer) (*api.LogicalSe
 func (s *ServerSelector) filterServers(servers []api.LogicalServer) []api.LogicalServer {
 	var filtered []api.LogicalServer
 
-	for _, server := range servers {
-		if s.isServerEligible(server) {
-			filtered = append(filtered, server)
+	for i := range servers {
+		if s.isServerEligible(&servers[i]) {
+			filtered = append(filtered, servers[i])
 		}
 	}
 
 	return filtered
 }
 
-func (s *ServerSelector) isServerEligible(server api.LogicalServer) bool {
+func (s *ServerSelector) isServerEligible(server *api.LogicalServer) bool {
 	// Skip offline servers
-	if server.Status != 1 {
+	if server.Status != constants.StatusOnline {
 		return false
 	}
 
@@ -99,7 +100,7 @@ func (s *ServerSelector) isServerEligible(server api.LogicalServer) bool {
 	return true
 }
 
-func (s *ServerSelector) isCountryMatch(server api.LogicalServer) bool {
+func (s *ServerSelector) isCountryMatch(server *api.LogicalServer) bool {
 	for _, country := range s.config.Countries {
 		if server.ExitCountry == country {
 			return true
@@ -127,9 +128,9 @@ func GetBestPhysicalServer(server *api.LogicalServer) *api.PhysicalServer {
 	}
 
 	// Find the first online physical server
-	for _, ps := range server.Servers {
-		if ps.Status == 1 {
-			return &ps
+	for i := range server.Servers {
+		if server.Servers[i].Status == constants.StatusOnline {
+			return &server.Servers[i]
 		}
 	}
 
@@ -144,19 +145,19 @@ func (s *ServerSelector) printDebugServerList(servers []api.LogicalServer) {
 	fmt.Printf("%-15s | %-18s | %-12s | Load | Score | Features\n", "Server", "City", "Tier")
 	fmt.Println("----------------------------------------------------------------------------------")
 
-	for _, server := range servers {
-		features := api.GetFeatureNames(server.Features)
+	for i := range servers {
+		features := api.GetFeatureNames(servers[i].Features)
 		featureStr := "-"
 		if len(features) > 0 {
 			featureStr = strings.Join(features, ", ")
 		}
 
 		fmt.Printf("%-15s | %-18s | %-12s | %3d%% | %.2f | %s\n",
-			server.Name,
-			server.City,
-			api.GetTierName(server.Tier),
-			server.Load,
-			server.Score,
+			servers[i].Name,
+			servers[i].City,
+			api.GetTierName(servers[i].Tier),
+			servers[i].Load,
+			servers[i].Score,
 			featureStr)
 	}
 

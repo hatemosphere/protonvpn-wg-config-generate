@@ -142,7 +142,7 @@ func RefreshSession(httpClient *http.Client, apiURL string, oldSession *api.Sess
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", apiURL+"/auth/refresh", bytes.NewBuffer(body))
+	req, err := http.NewRequest(http.MethodPost, apiURL+"/auth/refresh", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func RefreshSession(httpClient *http.Client, apiURL string, oldSession *api.Sess
 		if err := json.Unmarshal(respBody, &session); err != nil {
 			return nil, err
 		}
-		if session.Code == 1000 {
+		if session.Code == constants.APICodeSuccess {
 			return &session, nil
 		}
 	}
@@ -184,7 +184,7 @@ func RefreshSession(httpClient *http.Client, apiURL string, oldSession *api.Sess
 // VerifySession checks if a session is still valid by making a test API request.
 func VerifySession(httpClient *http.Client, apiURL string, session *api.Session) bool {
 	// Make a simple request to verify the session
-	req, err := http.NewRequest("GET", apiURL+"/vpn/v1/logicals", nil)
+	req, err := http.NewRequest(http.MethodGet, apiURL+"/vpn/v1/logicals", http.NoBody)
 	if err != nil {
 		return false
 	}

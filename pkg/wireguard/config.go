@@ -54,16 +54,19 @@ func NewConfigGenerator(cfg *config.Config) *ConfigGenerator {
 
 // Generate creates a WireGuard configuration file
 func (g *ConfigGenerator) Generate(server *api.LogicalServer, physicalServer *api.PhysicalServer, privateKey string) error {
-	content := g.buildConfig(server, physicalServer, privateKey)
+	content, err := g.buildConfig(server, physicalServer, privateKey)
+	if err != nil {
+		return err
+	}
 
-	if err := os.WriteFile(g.config.OutputFile, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(g.config.OutputFile, []byte(content), 0o600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
 	return nil
 }
 
-func (g *ConfigGenerator) buildConfig(server *api.LogicalServer, physicalServer *api.PhysicalServer, privateKey string) string {
+func (g *ConfigGenerator) buildConfig(server *api.LogicalServer, physicalServer *api.PhysicalServer, privateKey string) (string, error) {
 	// Build metadata header
 	metadata := g.buildMetadata(server, physicalServer)
 
@@ -79,11 +82,10 @@ func (g *ConfigGenerator) buildConfig(server *api.LogicalServer, physicalServer 
 
 	var buf bytes.Buffer
 	if err := g.template.Execute(&buf, data); err != nil {
-		// This should never happen with a valid template
-		panic(fmt.Sprintf("failed to execute template: %v", err))
+		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	return metadata + buf.String()
+	return metadata + buf.String(), nil
 }
 
 func (g *ConfigGenerator) buildAddressLine() string {

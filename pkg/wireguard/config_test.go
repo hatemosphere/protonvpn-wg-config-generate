@@ -28,44 +28,51 @@ func TestConfigGeneration(t *testing.T) {
 
 	privateKey := "testPrivateKey456="
 
-	result := generator.buildConfig(server, physicalServer, privateKey)
-
-	// Check that the config has proper structure
-	lines := strings.Split(result, "\n")
-
-	// Verify section headers
-	if lines[0] != "[Interface]" {
-		t.Errorf("Expected first line to be '[Interface]', got '%s'", lines[0])
+	result, err := generator.buildConfig(server, physicalServer, privateKey)
+	if err != nil {
+		t.Fatalf("buildConfig failed: %v", err)
 	}
 
-	// Check for proper indentation (no tabs/spaces before section headers)
-	for i, line := range lines {
-		if strings.HasPrefix(line, "[") && (strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")) {
-			t.Errorf("Line %d has unexpected indentation before section header: '%s'", i+1, line)
-		}
+	// Check that config starts with comment header
+	if !strings.HasPrefix(result, "# ProtonVPN WireGuard Configuration") {
+		t.Errorf("Expected config to start with header comment, got:\n%s", result[:100])
 	}
 
-	// Verify content structure
+	// Check that metadata is present
+	if !strings.Contains(result, "# - Name: Test-Server") {
+		t.Errorf("Expected server name in metadata")
+	}
+
+	// Check for proper WireGuard sections
+	if !strings.Contains(result, "[Interface]") {
+		t.Error("Expected [Interface] section")
+	}
+
+	if !strings.Contains(result, "[Peer]") {
+		t.Error("Expected [Peer] section")
+	}
+
+	// Verify key content
 	expectedContent := []string{
-		"[Interface]",
 		"PrivateKey = testPrivateKey456=",
 		"Address = 10.2.0.2/32",
 		"DNS = 10.2.0.1",
-		"",
-		"[Peer]",
 		"PublicKey = testPublicKey123=",
 		"AllowedIPs = 0.0.0.0/0",
 		"Endpoint = 192.168.1.1:51820",
 	}
 
-	for i, expected := range expectedContent {
-		if i >= len(lines) {
-			t.Errorf("Missing line %d: expected '%s'", i+1, expected)
-			continue
+	for _, expected := range expectedContent {
+		if !strings.Contains(result, expected) {
+			t.Errorf("Expected config to contain '%s'\nGot:\n%s", expected, result)
 		}
-		if lines[i] != expected {
-			t.Errorf("Line %d mismatch:\nExpected: '%s'\nGot:      '%s'", i+1, expected, lines[i])
-		}
+	}
+
+	// Check section order: [Interface] should come before [Peer]
+	interfaceIdx := strings.Index(result, "[Interface]")
+	peerIdx := strings.Index(result, "[Peer]")
+	if interfaceIdx >= peerIdx {
+		t.Error("[Interface] section should come before [Peer] section")
 	}
 }
 
@@ -90,7 +97,10 @@ func TestConfigGenerationWithIPv6(t *testing.T) {
 
 	privateKey := "testPrivateKey456="
 
-	result := generator.buildConfig(server, physicalServer, privateKey)
+	result, err := generator.buildConfig(server, physicalServer, privateKey)
+	if err != nil {
+		t.Fatalf("buildConfig failed: %v", err)
+	}
 
 	// Check that IPv6 address is included
 	if !strings.Contains(result, "Address = 10.2.0.2/32, 2a07:b944::2:2/128") {

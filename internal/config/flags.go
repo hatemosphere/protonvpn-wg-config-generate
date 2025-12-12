@@ -85,9 +85,9 @@ func Parse() (*Config, error) {
 		allowedIPsFlag = defaultAllowedIPs
 	}
 
-	// Parse lists
-	cfg.DNSServers = strings.Split(dnsServersFlag, ",")
-	cfg.AllowedIPs = strings.Split(allowedIPsFlag, ",")
+	// Parse lists (with space trimming)
+	cfg.DNSServers = parseCommaSeparatedList(dnsServersFlag)
+	cfg.AllowedIPs = parseCommaSeparatedList(allowedIPsFlag)
 
 	// Clean up username
 	cfg.Username = validation.CleanUsername(cfg.Username)
@@ -95,18 +95,22 @@ func Parse() (*Config, error) {
 	return cfg, nil
 }
 
-// parseCountries parses and normalizes country codes
-func parseCountries(countriesFlag string) []string {
-	countries := strings.Split(strings.ToUpper(countriesFlag), ",")
-	// Remove empty entries and trim spaces
+// parseCommaSeparatedList parses a comma-separated string into a trimmed slice
+func parseCommaSeparatedList(input string) []string {
+	parts := strings.Split(input, ",")
 	var result []string
-	for _, country := range countries {
-		country = strings.TrimSpace(country)
-		if country != "" {
-			result = append(result, country)
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			result = append(result, part)
 		}
 	}
 	return result
+}
+
+// parseCountries parses and normalizes country codes
+func parseCountries(countriesFlag string) []string {
+	return parseCommaSeparatedList(strings.ToUpper(countriesFlag))
 }
 
 // PrintUsage prints usage information

@@ -72,7 +72,7 @@ func (c *Client) GetCertificate(keyPair *ed25519.KeyPair) (*api.VPNInfo, error) 
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", c.config.APIURL+"/vpn/v1/certificate", bytes.NewBuffer(certJSON))
+	req, err := http.NewRequest(http.MethodPost, c.config.APIURL+"/vpn/v1/certificate", bytes.NewBuffer(certJSON))
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (c *Client) GetCertificate(keyPair *ed25519.KeyPair) (*api.VPNInfo, error) 
 		return nil, err
 	}
 
-	if vpnInfo.Code != 1000 {
+	if vpnInfo.Code != constants.APICodeSuccess {
 		// Include the actual API error message if available
 		if vpnInfo.Error != "" {
 			return nil, fmt.Errorf("VPN certificate error (code %d): %s", vpnInfo.Code, vpnInfo.Error)
@@ -108,7 +108,7 @@ func (c *Client) GetCertificate(keyPair *ed25519.KeyPair) (*api.VPNInfo, error) 
 
 // GetServers fetches the list of VPN servers
 func (c *Client) GetServers() ([]api.LogicalServer, error) {
-	req, err := http.NewRequest("GET", c.config.APIURL+"/vpn/v1/logicals", nil)
+	req, err := http.NewRequest(http.MethodGet, c.config.APIURL+"/vpn/v1/logicals", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (c *Client) GetServers() ([]api.LogicalServer, error) {
 		return nil, err
 	}
 
-	if response.Code != 1000 {
+	if response.Code != constants.APICodeSuccess {
 		return nil, fmt.Errorf("API returned error code: %d", response.Code)
 	}
 
