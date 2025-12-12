@@ -1,5 +1,10 @@
 # ProtonVPN WireGuard Config Generate
 
+[![CI](https://github.com/hatemosphere/protonvpn-wg-config-generate/actions/workflows/ci.yml/badge.svg)](https://github.com/hatemosphere/protonvpn-wg-config-generate/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/hatemosphere/protonvpn-wg-config-generate?include_prereleases)](https://github.com/hatemosphere/protonvpn-wg-config-generate/releases/latest)
+[![Go Report Card](https://goreportcard.com/badge/github.com/hatemosphere/protonvpn-wg-config-generate)](https://goreportcard.com/report/github.com/hatemosphere/protonvpn-wg-config-generate)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 A Go program that generates WireGuard configuration files for ProtonVPN servers with automatic selection of the best servers from specified countries with support of generic filters.
 
 ## Motivation
@@ -311,4 +316,6 @@ If authentication succeeds but you get error 9100 when getting the VPN certifica
 
 ## License
 
-This project uses code from ProtonVPN's go-vpn-lib which is licensed under GPLv3.
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
+
+This is required because the project uses [ProtonVPN/go-vpn-lib](https://github.com/ProtonVPN/go-vpn-lib) which is licensed under GPL-3.0.
