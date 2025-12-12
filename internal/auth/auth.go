@@ -110,37 +110,92 @@ func (c *Client) tryExistingSession() (*api.Session, error) {
 }
 
 // Authenticate performs the full authentication flow
-//
-//nolint:gocognit,gocyclo // Auth flow inherently complex due to multiple scenarios (2FA, session reuse, etc.)
 func (c *Client) Authenticate() (*api.Session, error) {
-	// Get username if not provided
 	if err := c.ensureUsername(); err != nil {
 		return nil, err
 	}
 
-	// Clear session if requested
-	if c.config.ClearSession {
-		fmt.Println("Clearing saved session...")
-		_ = c.sessionStore.Delete()
-	} else if !c.config.NoSession {
-		// Try to use existing session
-		if session, err := c.tryExistingSession(); err == nil && session != nil {
-			return session, nil
-		}
+	// Try existing session unless clearing or disabled
+	if session := c.handleExistingSession(); session != nil {
+		return session, nil
 	}
 
-	// Get password if not provided
 	if err := c.ensurePassword(); err != nil {
 		return nil, err
 	}
 
-	// Get auth info
+	// Perform fresh authentication
+	session, err := c.performFreshAuth()
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle session scope upgrade if needed
+	if err := c.upgradeSessionIfNeeded(session); err != nil {
+		return nil, err
+	}
+
+	c.saveSessionIfEnabled(session)
+	return session, nil
+}
+
+// handleExistingSession handles session clearing or reuse
+func (c *Client) handleExistingSession() *api.Session {
+	if c.config.ClearSession {
+		fmt.Println("Clearing saved session...")
+		_ = c.sessionStore.Delete()
+		return nil
+	}
+
+	if c.config.NoSession {
+		return nil
+	}
+
+	session, err := c.tryExistingSession()
+	if err == nil && session != nil {
+		return session
+	}
+	return nil
+}
+
+// performFreshAuth performs SRP authentication and returns a new session
+func (c *Client) performFreshAuth() (*api.Session, error) {
 	authInfo, err := c.getAuthInfo()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get auth info: %w", err)
 	}
 
-	// Perform SRP authentication
+	clientProofs, err := c.generateSRPProofs(authInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	authReq := c.buildAuthRequest(authInfo, clientProofs)
+
+	// Handle 2FA if needed
+	if authInfo.TwoFA.Enabled == constants.EnabledTrue && authInfo.TwoFA.TOTP == constants.EnabledTrue {
+		code, err := c.get2FACode()
+		if err != nil {
+			return nil, err
+		}
+		authReq["TwoFactorCode"] = code
+	}
+
+	session, err := c.sendAuthRequest(authReq)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify server proof
+	if session.ServerProof != base64.StdEncoding.EncodeToString(clientProofs.ExpectedServerProof) {
+		return nil, fmt.Errorf("server proof verification failed")
+	}
+
+	return session, nil
+}
+
+// generateSRPProofs generates SRP client proofs for authentication
+func (c *Client) generateSRPProofs(authInfo *api.AuthInfoResponse) (*srp.Proofs, error) {
 	auth, err := srp.NewAuth(
 		authInfo.Version,
 		c.config.Username,
@@ -153,84 +208,75 @@ func (c *Client) Authenticate() (*api.Session, error) {
 		return nil, fmt.Errorf("failed to create SRP auth: %w", err)
 	}
 
-	clientProofs, err := auth.GenerateProofs(2048)
+	proofs, err := auth.GenerateProofs(2048)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate SRP proofs: %w", err)
 	}
+	return proofs, nil
+}
 
-	// Build auth request
-	authReq := map[string]interface{}{
+// buildAuthRequest builds the authentication request payload
+func (c *Client) buildAuthRequest(authInfo *api.AuthInfoResponse, proofs *srp.Proofs) map[string]interface{} {
+	return map[string]interface{}{
 		"Username":          c.config.Username,
-		"ClientEphemeral":   base64.StdEncoding.EncodeToString(clientProofs.ClientEphemeral),
-		"ClientProof":       base64.StdEncoding.EncodeToString(clientProofs.ClientProof),
+		"ClientEphemeral":   base64.StdEncoding.EncodeToString(proofs.ClientEphemeral),
+		"ClientProof":       base64.StdEncoding.EncodeToString(proofs.ClientProof),
 		"SRPSession":        authInfo.SRPSession,
 		"PersistentCookies": 0,
 	}
+}
 
-	// Handle 2FA if needed
-	if authInfo.TwoFA.Enabled == constants.EnabledTrue && authInfo.TwoFA.TOTP == constants.EnabledTrue {
-		code, err := c.get2FACode()
-		if err != nil {
-			return nil, err
-		}
-		authReq["TwoFactorCode"] = code
+// upgradeSessionIfNeeded upgrades session with 2FA if VPN scope is missing
+func (c *Client) upgradeSessionIfNeeded(session *api.Session) error {
+	hasVPNScope, hasTwoFactorScope := c.checkSessionScopes(session)
+
+	if hasVPNScope || !hasTwoFactorScope {
+		return nil
 	}
 
-	// Send auth request
-	session, err := c.sendAuthRequest(authReq)
+	fmt.Println("Session lacks VPN scope - 2FA verification required to upgrade session...")
+	code, err := c.get2FACode()
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("failed to get 2FA code: %w", err)
 	}
 
-	// Verify server proof
-	if session.ServerProof != base64.StdEncoding.EncodeToString(clientProofs.ExpectedServerProof) {
-		return nil, fmt.Errorf("server proof verification failed")
+	updatedScopes, err := c.submit2FA(session, code)
+	if err != nil {
+		return fmt.Errorf("2FA verification failed: %w", err)
 	}
+	session.Scopes = updatedScopes
+	fmt.Println("2FA verified - session upgraded with VPN scope")
+	return nil
+}
 
-	// Check if session has VPN scope (requires 2FA for accounts with 2FA enabled)
-	hasVPNScope := false
-	hasTwoFactorScope := false
+// checkSessionScopes checks if session has VPN and twofactor scopes
+func (c *Client) checkSessionScopes(session *api.Session) (hasVPN, hasTwoFactor bool) {
 	for _, scope := range session.Scopes {
-		if scope == "vpn" {
-			hasVPNScope = true
-		}
-		if scope == "twofactor" {
-			hasTwoFactorScope = true
-		}
-	}
-
-	// If no VPN scope but account has 2FA (twofactor scope), we need to upgrade session with 2FA
-	if !hasVPNScope && hasTwoFactorScope {
-		fmt.Println("Session lacks VPN scope - 2FA verification required to upgrade session...")
-		code, err := c.get2FACode()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get 2FA code: %w", err)
-		}
-
-		// Upgrade session with 2FA
-		updatedScopes, err := c.submit2FA(session, code)
-		if err != nil {
-			return nil, fmt.Errorf("2FA verification failed: %w", err)
-		}
-		session.Scopes = updatedScopes
-		fmt.Println("2FA verified - session upgraded with VPN scope")
-	}
-
-	// Save the session for future use (unless disabled)
-	if !c.config.NoSession {
-		// Parse session duration
-		sessionDuration, err := timeutil.ParseSessionDuration(c.config.SessionDuration)
-		if err != nil {
-			fmt.Printf("Warning: Invalid session duration, using default: %v\n", err)
-			sessionDuration = 0 // Default to no expiration
-		}
-
-		if err := c.sessionStore.Save(session, c.config.Username, sessionDuration); err != nil {
-			fmt.Printf("Warning: Failed to save session: %v\n", err)
+		switch scope {
+		case "vpn":
+			hasVPN = true
+		case "twofactor":
+			hasTwoFactor = true
 		}
 	}
+	return
+}
 
-	return session, nil
+// saveSessionIfEnabled saves the session if persistence is enabled
+func (c *Client) saveSessionIfEnabled(session *api.Session) {
+	if c.config.NoSession {
+		return
+	}
+
+	sessionDuration, err := timeutil.ParseSessionDuration(c.config.SessionDuration)
+	if err != nil {
+		fmt.Printf("Warning: Invalid session duration, using default: %v\n", err)
+		sessionDuration = 0
+	}
+
+	if err := c.sessionStore.Save(session, c.config.Username, sessionDuration); err != nil {
+		fmt.Printf("Warning: Failed to save session: %v\n", err)
+	}
 }
 
 func (c *Client) ensureUsername() error {
