@@ -47,7 +47,6 @@ linters:
         - name: error-strings
         - name: error-naming
         - name: exported
-        - name: var-naming
         - name: package-comments
         - name: range
         - name: receiver-naming
