@@ -59,8 +59,16 @@ func TestCaptchaError(t *testing.T) {
 	session.Details.HumanVerificationMethods = []string{constants.HVMethodCaptcha}
 	session.Details.HumanVerificationToken = "tok-123"
 
-	msg := captchaError(session).Error()
-	for _, want := range []string{"tok-123", "-hv-token", "verify.proton.me", constants.HVMethodCaptcha} {
+	msg := captchaError(session, "https://vpn-api.proton.me").Error()
+	// The challenge token must appear in the widget URL, and the message must be
+	// explicit that the replayed token is a different one.
+	for _, want := range []string{
+		"https://vpn-api.proton.me/core/v4/captcha?Token=tok-123",
+		"-hv-token",
+		"pm_captcha",
+		"NOT the one in the URL above",
+		constants.HVMethodCaptcha,
+	} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("captcha error missing %q:\n%s", want, msg)
 		}
@@ -68,7 +76,7 @@ func TestCaptchaError(t *testing.T) {
 
 	// With no token there is nothing to replay, so do not advertise the flag.
 	bare := &api.Session{Code: 9001}
-	if msg := captchaError(bare).Error(); strings.Contains(msg, "-hv-token") {
+	if msg := captchaError(bare, "https://vpn-api.proton.me").Error(); strings.Contains(msg, "-hv-token") {
 		t.Errorf("tokenless captcha error should not suggest -hv-token:\n%s", msg)
 	}
 }

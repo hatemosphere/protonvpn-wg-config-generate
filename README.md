@@ -196,18 +196,26 @@ addresses or a machine already connected to a VPN. This is not specific to this
 tool - the official clients hit the same challenge and solve it in an embedded
 webview.
 
-The challenge cannot be solved in a terminal, but it can be solved elsewhere and
-replayed. On a 9001 the error prints a verification URL and a token; open the
-URL in a browser, complete the CAPTCHA, then re-run with the same token:
+The challenge cannot be solved in a terminal, but it can be solved in a browser
+and the result replayed. On a 9001 the error prints the exact URL to open. The
+important detail: **the token in that URL is the challenge, not the answer.**
+Solving the widget produces a second token, and that is the one to replay.
+Replaying the challenge token only earns a fresh challenge.
+
+1. Open the URL from the error, `<api-url>/core/v4/captcha?Token=<challenge>`
+2. Solve the CAPTCHA. The page posts its result to the parent frame as
+   `{"type": "pm_captcha", "token": "..."}`. Capture it, for example with
+   `window.addEventListener('message', e => console.log(e.data))` in the console
+3. Re-run with that token:
 
 ```bash
-protonvpn-wg-confgen -username myusername -countries US -hv-token <token>
+protonvpn-wg-confgen -username myusername -countries US -hv-token <solved-token>
 ```
 
 The token travels as `x-pm-human-verification-token`, matching Proton's own
 client. Only the `captcha` method is replayable this way; `email` and `sms`
 deliver a code through a separate flow. Signing in once at account.proton.me
-from the same network, or retrying from a residential connection, also clears
+from the same network, or retrying from a residential connection, may also clear
 the challenge.
 
 ### Session persistence

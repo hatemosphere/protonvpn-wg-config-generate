@@ -11,6 +11,8 @@ const (
 	RefreshPath     = "/auth/refresh"
 	CertificatePath = "/vpn/v1/certificate"
 	LogicalsPath    = "/vpn/v1/logicals"
+	// CaptchaPath serves the human verification widget for this API entry point.
+	CaptchaPath = "/core/v4/captcha"
 )
 
 // API version headers - can be overridden at build time via ldflags:

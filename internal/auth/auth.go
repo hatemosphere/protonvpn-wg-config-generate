@@ -383,7 +383,7 @@ func (c *Client) sendAuthRequest(authReq map[string]any) (*api.Session, error) {
 	}
 
 	if session.Code == CodeCaptchaRequired {
-		return nil, captchaError(&session)
+		return nil, captchaError(&session, c.config.APIURL)
 	}
 
 	if session.Code != CodeSuccess {
@@ -396,9 +396,13 @@ func (c *Client) sendAuthRequest(authReq map[string]any) (*api.Session, error) {
 	return &session, nil
 }
 
-// captchaError explains a 9001 response and hands back the challenge token, so
-// the CAPTCHA can be solved in a browser and replayed through -hv-token.
-func captchaError(session *api.Session) error {
+// captchaError explains a 9001 response and points at the CAPTCHA widget for
+// this API entry point.
+//
+// The token in the 9001 payload is the challenge, not the answer: solving the
+// widget produces a second token, and that is the one the API accepts back.
+// Replaying the challenge token just earns a fresh challenge.
+func captchaError(session *api.Session, apiURL string) error {
 	msg := "CAPTCHA verification required by Proton (code 9001)"
 	if methods := session.Details.HumanVerificationMethods; len(methods) > 0 {
 		msg += fmt.Sprintf("\nAccepted verification methods: %s", strings.Join(methods, ", "))
@@ -406,20 +410,24 @@ func captchaError(session *api.Session) error {
 
 	if token := session.Details.HumanVerificationToken; token != "" {
 		return errors.New(msg + "\n\n" +
-			"The challenge cannot be solved in a terminal, but it can be solved elsewhere\n" +
-			"and replayed. Open this in a browser, complete the CAPTCHA, then re-run with\n" +
-			"-hv-token set to the same token:\n\n" +
-			"  https://verify.proton.me/?methods=captcha&token=" + token + "\n\n" +
-			"  -hv-token " + token + "\n\n" +
-			"Proton challenges logins that look automated, most often from datacenter/VPS\n" +
-			"or already-VPN'd addresses. Signing in once at https://account.proton.me from\n" +
-			"the same network, or retrying from a residential connection, also clears it.")
+			"Solve the CAPTCHA in a browser, then replay the token it produces:\n\n" +
+			"  1. Open " + apiURL + constants.CaptchaPath + "?Token=" + token + "\n" +
+			"  2. Solve it. The page posts its result to the parent frame as\n" +
+			"     {\"type\": \"pm_captcha\", \"token\": \"...\"}. Capture that token, for\n" +
+			"     example from the browser console:\n" +
+			"       window.addEventListener('message', e => console.log(e.data))\n" +
+			"  3. Re-run with -hv-token set to the token from step 2\n\n" +
+			"Note the token from step 2 is NOT the one in the URL above: that one is\n" +
+			"the challenge, and replaying it only produces a new challenge.\n\n" +
+			"Proton challenges logins that look automated, most often from datacenter\n" +
+			"or VPS addresses. Signing in once at https://account.proton.me from the\n" +
+			"same network, or retrying from a residential connection, may also clear it.")
 	}
 
 	return errors.New(msg + "\n" +
 		"Proton returned no verification token, so the challenge cannot be replayed.\n" +
-		"Sign in once at https://account.proton.me from the same network, then retry,\n" +
-		"or retry from a residential connection with the VPN turned off.")
+		"Signing in once at https://account.proton.me from the same network, or\n" +
+		"retrying from a residential connection, may clear it.")
 }
 
 // submit2FA submits a 2FA code to upgrade the session with additional scopes (like VPN)
