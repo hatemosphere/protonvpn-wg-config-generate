@@ -197,20 +197,34 @@ tool - the official clients hit the same challenge and solve it in an embedded
 webview.
 
 The challenge cannot be solved in a terminal, but it can be solved in a browser
-and the result replayed. On a 9001 the error prints the exact URL to open. The
-important detail: **the token in that URL is the challenge, not the answer.**
-Solving the widget produces a second token, and that is the one to replay.
-Replaying the challenge token only earns a fresh challenge.
+and the result replayed with `-hv-token`. This flow is confirmed working.
+
+On a 9001 the error prints the exact URL to open. The token to replay is **not**
+the one in that URL: the widget emits `<challenge>:<solved-response>`, and that
+whole colon-joined string is what the API accepts.
 
 1. Open the URL from the error, `<api-url>/core/v4/captcha?Token=<challenge>`
-2. Solve the CAPTCHA. The page posts its result to the parent frame as
-   `{"type": "pm_captcha", "token": "..."}`. Capture it, for example with
-   `window.addEventListener('message', e => console.log(e.data))` in the console
-3. Re-run with that token:
+2. Paste this in the browser console **before** solving. The page emits its
+   result as a `postMessage`, and browser extensions post plenty of their own,
+   so filter for Proton's:
+
+   ```js
+   window.addEventListener("message", e => {
+     const t = e.data?.type
+     if (t === "pm_captcha" || t === "proton_captcha")
+       console.log("HV TOKEN:", e.data.token)
+   })
+   ```
+
+3. Solve the CAPTCHA. The logged token looks like `zB2tiSsS...:RoIAZ83v...`
+4. Re-run with the whole string, quoted - the response can contain `/`:
 
 ```bash
-protonvpn-wg-confgen -username myusername -countries US -hv-token <solved-token>
+protonvpn-wg-confgen -username myusername -countries US -hv-token '<challenge>:<response>'
 ```
+
+Challenge tokens expire, so if step 4 reports 9001 again, restart from the fresh
+token in the new error.
 
 The token travels as `x-pm-human-verification-token`, matching Proton's own
 client. Only the `captcha` method is replayable this way; `email` and `sms`

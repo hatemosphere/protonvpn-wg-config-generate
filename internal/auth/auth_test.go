@@ -66,7 +66,8 @@ func TestCaptchaError(t *testing.T) {
 		"https://vpn-api.proton.me/core/v4/captcha?Token=tok-123",
 		"-hv-token",
 		"pm_captcha",
-		"NOT the one in the URL above",
+		"tok-123:<long-response>",
+		"proton_captcha",
 		constants.HVMethodCaptcha,
 	} {
 		if !strings.Contains(msg, want) {

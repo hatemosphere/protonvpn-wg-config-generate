@@ -399,9 +399,9 @@ func (c *Client) sendAuthRequest(authReq map[string]any) (*api.Session, error) {
 // captchaError explains a 9001 response and points at the CAPTCHA widget for
 // this API entry point.
 //
-// The token in the 9001 payload is the challenge, not the answer: solving the
-// widget produces a second token, and that is the one the API accepts back.
-// Replaying the challenge token just earns a fresh challenge.
+// The widget emits "<challenge>:<solved-response>" (see sendToken in the page
+// it serves), and that combined string is what the API accepts back. Replaying
+// the bare challenge token just earns a fresh challenge.
 func captchaError(session *api.Session, apiURL string) error {
 	msg := "CAPTCHA verification required by Proton (code 9001)"
 	if methods := session.Details.HumanVerificationMethods; len(methods) > 0 {
@@ -412,13 +412,20 @@ func captchaError(session *api.Session, apiURL string) error {
 		return errors.New(msg + "\n\n" +
 			"Solve the CAPTCHA in a browser, then replay the token it produces:\n\n" +
 			"  1. Open " + apiURL + constants.CaptchaPath + "?Token=" + token + "\n" +
-			"  2. Solve it. The page posts its result to the parent frame as\n" +
-			"     {\"type\": \"pm_captcha\", \"token\": \"...\"}. Capture that token, for\n" +
-			"     example from the browser console:\n" +
-			"       window.addEventListener('message', e => console.log(e.data))\n" +
-			"  3. Re-run with -hv-token set to the token from step 2\n\n" +
-			"Note the token from step 2 is NOT the one in the URL above: that one is\n" +
-			"the challenge, and replaying it only produces a new challenge.\n\n" +
+			"  2. Paste this in the browser console BEFORE solving, so the result is\n" +
+			"     not lost among messages from browser extensions:\n" +
+			"       window.addEventListener('message', e => {\n" +
+			"         const t = e.data?.type\n" +
+			"         if (t === 'pm_captcha' || t === 'proton_captcha')\n" +
+			"           console.log('HV TOKEN:', e.data.token)\n" +
+			"       })\n" +
+			"  3. Solve the CAPTCHA. The logged token looks like\n" +
+			"       " + token + ":<long-response>\n" +
+			"     that is, the challenge above, a colon, then the solved response.\n" +
+			"  4. Re-run with the whole string, quoted, as -hv-token:\n" +
+			"       -hv-token '" + token + ":<long-response>'\n\n" +
+			"Challenge tokens expire, so if step 4 reports 9001 again, start over\n" +
+			"from the fresh token in the new error.\n\n" +
 			"Proton challenges logins that look automated, most often from datacenter\n" +
 			"or VPS addresses. Signing in once at https://account.proton.me from the\n" +
 			"same network, or retrying from a residential connection, may also clear it.")
