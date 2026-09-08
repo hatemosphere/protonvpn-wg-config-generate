@@ -50,7 +50,7 @@ func getErrorMessage(code int) string {
 	case CodeCaptchaRequired:
 		return "CAPTCHA verification required"
 	case Code2FARequiredForVPN:
-		return "2FA required for VPN operations - your session was authenticated without 2FA (device trust). Use -clear-session to force re-authentication with 2FA"
+		return "2FA required for VPN operations - your session was authenticated without 2FA (device trust). Use --clear-session to force re-authentication with 2FA"
 	case CodeAccountDeleted:
 		return "account has been deleted"
 	case CodeAccountDisabled:

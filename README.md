@@ -26,7 +26,7 @@ Download a binary for your platform from the [latest release](https://github.com
 
 ```bash
 tar xzf protonvpn-wg-confgen_*_linux_amd64.tar.gz
-./protonvpn-wg-confgen -h
+./protonvpn-wg-confgen --help
 ```
 
 Or build from source (requires Go 1.26+):
@@ -44,108 +44,112 @@ You will need a ProtonVPN account; a free one works, with the tier caveats noted
 ## Usage
 
 ```bash
-protonvpn-wg-confgen -username <username> -countries <country-codes> [options]
-protonvpn-wg-confgen -username <username> -server <server-name> [options]
-protonvpn-wg-confgen -username <username> -list-servers [-countries <country-codes>]
-protonvpn-wg-confgen -username <username> -list-configs
-protonvpn-wg-confgen -username <username> -renew-serial <serial-number>
+protonvpn-wg-confgen --username <user> --countries <codes> [flags]
+protonvpn-wg-confgen --username <user> --server <name> [flags]
+protonvpn-wg-confgen --username <user> --list-servers [--countries <codes>]
+protonvpn-wg-confgen --username <user> --list-configs
+protonvpn-wg-confgen --username <user> --renew-serial <serial>
 ```
 
-`-username` is optional and prompted for when omitted, as is the password. Either `-countries` or `-server` is required when generating a configuration.
+`username` is optional and prompted for when omitted, as is the password. Either `countries` or `server` is required when generating a configuration.
+
+### Passing flags
+
+Flags are given as `--name value` or `--name=value`; the two forms are interchangeable. Booleans are switches: `--ipv6` turns one on, and the ones that default to on are turned off with `=false`, e.g. `--accelerator=false`. A single dash (`-name`) is accepted too, so older invocations keep working. `--help` prints every flag grouped as below.
 
 ### Modes
 
 | Flag | Description |
 |------|-------------|
 | *(default)* | Generate a WireGuard configuration |
-| `-list-servers` | List available servers (country, name, city, load, score, tier, features) and exit. Honors `-countries`, `-secure-core`, `-p2p-only`, and `-free-only` |
-| `-list-configs` | List persistent configurations on the account (SerialNumber, DeviceName, expiry, key fingerprint) and exit |
-| `-renew-serial <serial>` | Renew a persistent certificate by SerialNumber, reusing its existing key. Extends it server-side and writes no `.conf` file |
+| `list-servers` | List available servers (country, name, city, load, score, tier, features) and exit. Honors `--countries`, `--secure-core`, `--p2p-only`, and `--free-only` |
+| `list-configs` | List persistent configurations on the account (SerialNumber, DeviceName, expiry, key fingerprint) and exit |
+| `renew-serial <serial>` | Renew a persistent certificate by SerialNumber, reusing its existing key. Extends it server-side and writes no `.conf` file |
 
 ### Server selection
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-countries` | | Comma-separated country codes, e.g. `US,NL,CH`. Always matches the **exit** country |
-| `-server` | | Target one server by name, e.g. `UA#122`. Alternative to `-countries`, and bypasses the filters below |
-| `-p2p-only` | `true` | Use only P2P-enabled servers |
-| `-secure-core` | `false` | Use only Secure Core servers |
-| `-free-only` | `false` | Use only Free tier servers |
-| `-debug` | `false` | Print every server that survived filtering |
+| `countries` | | Comma-separated country codes, e.g. `US,NL,CH`. Always matches the **exit** country |
+| `server` | | Target one server by name, e.g. `UA#122`. Alternative to `--countries`, and bypasses the filters below |
+| `p2p-only` | `true` | Use only P2P-enabled servers |
+| `secure-core` | `false` | Use only Secure Core servers |
+| `free-only` | `false` | Use only Free tier servers |
+| `debug` | `false` | Print every server that survived filtering |
 
 ### Output and network
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-output` | `protonvpn.conf` | Output file path |
-| `-device-name` | *(generated)* | Device name shown in the ProtonVPN dashboard |
-| `-ipv6` | `false` | Enable IPv6 |
-| `-dns` | *(per `-ipv6`)* | Comma-separated DNS servers |
-| `-allowed-ips` | *(per `-ipv6`)* | Comma-separated allowed IPs |
-| `-accelerator` | `true` | VPN accelerator |
-| `-port-forwarding` | `false` | NAT-PMP port forwarding (Plus tier, P2P servers) |
-| `-moderate-nat` | `false` | Moderate NAT (paid plans). Cannot be combined with `-port-forwarding` |
+| `output` | `protonvpn.conf` | Output file path |
+| `device-name` | *(generated)* | Device name shown in the ProtonVPN dashboard |
+| `ipv6` | `false` | Enable IPv6 |
+| `dns` | *(per `--ipv6`)* | Comma-separated DNS servers |
+| `allowed-ips` | *(per `--ipv6`)* | Comma-separated allowed IPs |
+| `accelerator` | `true` | VPN accelerator |
+| `port-forwarding` | `false` | NAT-PMP port forwarding (Plus tier, P2P servers) |
+| `moderate-nat` | `false` | Moderate NAT (paid plans). Cannot be combined with `--port-forwarding` |
 
 ### Certificate and session
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-duration` | `365d` (`7d` with `-no-save`) | Certificate lifetime, e.g. `30m`, `24h`, `7d`, `1h30m`. Min `10m`, max `365d` (`7d` with `-no-save`) |
-| `-no-save` | `false` | Issue a session-only certificate, never registered on the account |
-| `-session-duration` | `0` | Session cache lifetime, e.g. `12h`, `7d`. `0` uses the API expiration. Max `30d` |
-| `-clear-session` | `false` | Clear the saved session and re-authenticate |
-| `-no-session` | `false` | Disable session persistence entirely |
-| `-force-refresh` | `false` | Refresh the session even if it is not expiring soon |
-| `-hv-token` | | Human verification token replayed after solving a CAPTCHA out of band, see below |
-| `-api-url` | `https://vpn-api.proton.me` | ProtonVPN API base URL |
+| `duration` | `365d` (`7d` with `--no-save`) | Certificate lifetime, e.g. `30m`, `24h`, `7d`, `1h30m`. Min `10m`, max `365d` (`7d` with `--no-save`) |
+| `no-save` | `false` | Issue a session-only certificate, never registered on the account |
+| `session-duration` | `0` | Session cache lifetime, e.g. `12h`, `7d`. `0` uses the API expiration. Max `30d` |
+| `clear-session` | `false` | Clear the saved session and re-authenticate |
+| `no-session` | `false` | Disable session persistence entirely |
+| `force-refresh` | `false` | Refresh the session even if it is not expiring soon |
+| `hv-token` | | Human verification token replayed after solving a CAPTCHA out of band, see below |
+| `api-url` | `https://vpn-api.proton.me` | ProtonVPN API base URL |
 
 ## Examples
 
 ```bash
 # Best P2P server across the US and Netherlands
-protonvpn-wg-confgen -username myusername -countries US,NL
+protonvpn-wg-confgen --username myusername --countries US,NL
 
 # Custom DNS and output path
-protonvpn-wg-confgen -username myusername -countries CH,DE -dns 1.1.1.1,8.8.8.8 -output switzerland.conf
+protonvpn-wg-confgen --username myusername --countries CH,DE --dns 1.1.1.1,8.8.8.8 --output switzerland.conf
 
 # A specific server, IPv6 enabled
-protonvpn-wg-confgen -username myusername -server UA#122 -ipv6
+protonvpn-wg-confgen --username myusername --server UA#122 --ipv6
 
 # Secure Core, 30-day certificate
-protonvpn-wg-confgen -username myusername -countries NL,US -secure-core -duration 30d
+protonvpn-wg-confgen --username myusername --countries NL,US --secure-core --duration 30d
 
 # Session-only config that never lands in the dashboard
-protonvpn-wg-confgen -username myusername -countries US -no-save
+protonvpn-wg-confgen --username myusername --countries US --no-save
 
 # Port forwarding for P2P, or Moderate NAT for gaming (mutually exclusive)
-protonvpn-wg-confgen -username myusername -countries NL -port-forwarding
-protonvpn-wg-confgen -username myusername -countries NL -moderate-nat
+protonvpn-wg-confgen --username myusername --countries NL --port-forwarding
+protonvpn-wg-confgen --username myusername --countries NL --moderate-nat
 
 # Free tier only, no session saved to disk
-protonvpn-wg-confgen -username myusername -countries US,NL -free-only -no-session
+protonvpn-wg-confgen --username myusername --countries US,NL --free-only --no-session
 ```
 
 Listing and maintenance:
 
 ```bash
-protonvpn-wg-confgen -username myusername -list-servers -countries US,PL
-protonvpn-wg-confgen -username myusername -list-servers -secure-core
-protonvpn-wg-confgen -username myusername -list-configs
-protonvpn-wg-confgen -username myusername -renew-serial "SERIAL12345"
+protonvpn-wg-confgen --username myusername --list-servers --countries US,PL
+protonvpn-wg-confgen --username myusername --list-servers --secure-core
+protonvpn-wg-confgen --username myusername --list-configs
+protonvpn-wg-confgen --username myusername --renew-serial "SERIAL12345"
 ```
 
 ## Persistent vs session-only configurations
 
 Proton issues certificates in one of two modes.
 
-**Persistent** (the default) registers a named configuration on your account. It appears in the ProtonVPN dashboard, is listed by `-list-configs`, can be renewed with `-renew-serial`, and accepts durations up to 365 days.
+**Persistent** (the default) registers a named configuration on your account. It appears in the ProtonVPN dashboard, is listed by `--list-configs`, can be renewed with `--renew-serial`, and accepts durations up to 365 days.
 
-**Session-only** (`-no-save`) omits `Mode` and `DeviceName` from the request, which is what the official ProtonVPN clients do for an ordinary connection. The `.conf` file is written normally; only the account-side registration is skipped. Consequences:
+**Session-only** (`--no-save`) omits `Mode` and `DeviceName` from the request, which is what the official ProtonVPN clients do for an ordinary connection. The `.conf` file is written normally; only the account-side registration is skipped. Consequences:
 
-- Absent from the dashboard and from `-list-configs`, which queries `Mode=persistent` only
+- Absent from the dashboard and from `--list-configs`, which queries `Mode=persistent` only
 - Cannot be renewed - generate a new configuration instead
-- `-device-name` is ignored
-- Capped at 7 days, which is also the default when `-duration` is omitted. Anything between `10m` and `7d` is honored exactly; longer values are rejected up front, because the API would otherwise silently clamp them to 7 days
+- `--device-name` is ignored
+- Capped at 7 days, which is also the default when `--duration` is omitted. Anything between `10m` and `7d` is honored exactly; longer values are rejected up front, because the API would otherwise silently clamp them to 7 days
 
 Either way, the output reports what was actually issued and the expiry the API granted:
 
@@ -163,25 +167,25 @@ Free tier servers are excluded unless you ask for them:
 
 | Tier | Selected when | Notes |
 |------|---------------|-------|
-| Free (0) | `-free-only` | Limited selection, higher load, no P2P |
+| Free (0) | `--free-only` | Limited selection, higher load, no P2P |
 | Plus (2) | default | Full features, including P2P and Secure Core |
 | Visionary (3) | default | Returned by the API for historical and bundle plans |
 
-`-free-only` swaps the tier filter rather than widening it: it selects Free servers *exclusively*. It also disables P2P filtering, since Free servers do not support P2P.
+`--free-only` swaps the tier filter rather than widening it: it selects Free servers *exclusively*. It also disables P2P filtering, since Free servers do not support P2P.
 
 ## Secure Core
 
 Secure Core routes traffic through a server in a privacy-friendly country before it exits in your chosen one, which protects against network-based attacks at the exit at the cost of latency.
 
 - Entry countries are always Switzerland (CH), Iceland (IS), or Sweden (SE)
-- `-countries` filters the **exit** country - where your traffic appears to come from
+- `--countries` filters the **exit** country - where your traffic appears to come from
 - Server names carry both ends, so `IS-NL#1` is Iceland -> Netherlands
 - P2P filtering is disabled automatically, since Secure Core servers do not support P2P
 - Requires a Plus or higher subscription
 
 ## IPv6
 
-Configurations are IPv4-only by default. `-ipv6` additionally assigns the IPv6 interface address `2a07:b944::2:2/128`, adds Proton's internal IPv6 DNS `2a07:b944::2:1`, and routes `::/0`. Explicit `-dns` and `-allowed-ips` override these defaults.
+Configurations are IPv4-only by default. `--ipv6` additionally assigns the IPv6 interface address `2a07:b944::2:2/128`, adds Proton's internal IPv6 DNS `2a07:b944::2:1`, and routes `::/0`. Explicit `--dns` and `--allowed-ips` override these defaults.
 
 ## Authentication
 
@@ -197,7 +201,7 @@ tool - the official clients hit the same challenge and solve it in an embedded
 webview.
 
 The challenge cannot be solved in a terminal, but it can be solved in a browser
-and the result replayed with `-hv-token`. This flow is confirmed working.
+and the result replayed with `--hv-token`. This flow is confirmed working.
 
 On a 9001 the error prints the exact URL to open. The token to replay is **not**
 the one in that URL: the widget emits `<challenge>:<solved-response>`, and that
@@ -220,7 +224,7 @@ whole colon-joined string is what the API accepts.
 4. Re-run with the whole string, quoted - the response can contain `/`:
 
 ```bash
-protonvpn-wg-confgen -username myusername -countries US -hv-token '<challenge>:<response>'
+protonvpn-wg-confgen --username myusername --countries US --hv-token '<challenge>:<response>'
 ```
 
 Challenge tokens expire, so if step 4 reports 9001 again, restart from the fresh
@@ -237,9 +241,9 @@ the challenge.
 Sessions are stored in `~/.protonvpn-session.json` with `0600` permissions, verified before reuse, and tied to the username that created them.
 
 - Proton sessions expire after 30 days (the API's `ExpiresIn`)
-- `-session-duration` shortens that; values beyond the API's expiration are capped to it
+- `--session-duration` shortens that; values beyond the API's expiration are capped to it
 - Sessions refresh automatically when fewer than 7 days remain
-- `-clear-session`, `-force-refresh`, and `-no-session` override the defaults
+- `--clear-session`, `--force-refresh`, and `--no-session` override the defaults
 
 ## Using the generated configuration
 
@@ -253,7 +257,7 @@ On Windows or any GUI client, import the file.
 
 ## Security notes
 
-- A fresh WireGuard keypair is generated on every run, except with `-renew-serial`, which reuses the existing key
+- A fresh WireGuard keypair is generated on every run, except with `--renew-serial`, which reuses the existing key
 - Configuration files hold your private key and are written with `0600` permissions - never share them
 - Persistent configurations can be revoked from the dashboard; session-only ones cannot be revoked at all and simply expire within 7 days
 

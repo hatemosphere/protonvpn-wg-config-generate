@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -49,7 +50,7 @@ func Parse() (*Config, error) {
 	flag.BoolVar(&cfg.ModerateNAT, "moderate-nat", false, "Enable Moderate NAT (paid plans; incompatible with port forwarding)")
 
 	// Certificate configuration
-	flag.StringVar(&cfg.Duration, "duration", constants.DefaultCertDuration, "Certificate duration (e.g., 30m, 24h, 7d, 1h30m). Min: 10m, max: 365d (7d with -no-save)")
+	flag.StringVar(&cfg.Duration, "duration", constants.DefaultCertDuration, "Certificate duration (e.g., 30m, 24h, 7d, 1h30m). Min: 10m, max: 365d (7d with --no-save)")
 
 	// Session management
 	flag.BoolVar(&cfg.ClearSession, "clear-session", false, "Clear saved session and force re-authentication")
@@ -71,15 +72,16 @@ func Parse() (*Config, error) {
 	flag.BoolVar(&cfg.ListConfigs, "list-configs", false, "List all persistent WireGuard configurations on the account and exit")
 
 	// Server listing mode
-	flag.BoolVar(&cfg.ListServers, "list-servers", false, "List available servers and exit (optionally filter by -countries)")
+	flag.BoolVar(&cfg.ListServers, "list-servers", false, "List available servers and exit (optionally filter by --countries)")
 
 	// Renew mode
 	flag.StringVar(&cfg.RenewSerial, "renew-serial", "", "Renew a persistent configuration by SerialNumber (reuses existing key, no config file generated)")
 
+	flag.Usage = PrintUsage
 	flag.Parse()
 
 	// Session certificates max out at 7 days, so fall back to that instead of
-	// the 365d persistent default when -duration was not given explicitly.
+	// the 365d persistent default when --duration was not given explicitly.
 	if cfg.NoSave && !isFlagSet("duration") {
 		cfg.Duration = constants.DefaultSessionCertDuration
 	}
@@ -98,27 +100,27 @@ func Parse() (*Config, error) {
 		}
 	}
 
-	// -list-configs does not need a country filter.
+	// --list-configs does not need a country filter.
 	if cfg.ListConfigs {
 		cfg.Username = validation.CleanUsername(cfg.Username)
 		return cfg, nil
 	}
 
-	// -list-servers does not need a country filter either.
+	// --list-servers does not need a country filter either.
 	if cfg.ListServers {
 		cfg.Username = validation.CleanUsername(cfg.Username)
 		return cfg, nil
 	}
 
-	// -renew-serial may optionally filter by country, but doesn't require it.
+	// --renew-serial may optionally filter by country, but doesn't require it.
 	if cfg.RenewSerial != "" {
 		cfg.Username = validation.CleanUsername(cfg.Username)
 		return cfg, nil
 	}
 
-	// Validate required flags: countries are needed unless -server is specified
+	// Validate required flags: countries are needed unless --server is specified
 	if countriesFlag == "" && cfg.ServerName == "" {
-		return nil, fmt.Errorf("countries flag is required (or use -server to select a specific server)")
+		return nil, fmt.Errorf("countries flag is required (or use --server to select a specific server)")
 	}
 
 	// Set defaults based on IPv6 setting
@@ -167,7 +169,7 @@ func validateDuration(cfg *Config) error {
 		return fmt.Errorf("duration cannot exceed %dd", constants.MaxCertDuration)
 	}
 	if cfg.NoSave && duration > constants.MaxSessionCertDuration*24*time.Hour {
-		return fmt.Errorf("duration cannot exceed %dd with -no-save (the API silently clamps session certificates to %dd)",
+		return fmt.Errorf("duration cannot exceed %dd with --no-save (the API silently clamps session certificates to %dd)",
 			constants.MaxSessionCertDuration, constants.MaxSessionCertDuration)
 	}
 	return nil
@@ -211,9 +213,73 @@ func parseCountries(countriesFlag string) []string {
 	return result
 }
 
-// PrintUsage prints usage information
+// flagGroups orders the help output. Every registered flag must appear in
+// exactly one group; TestFlagGroupsCoverAllFlags enforces it so a new flag
+// cannot silently vanish from --help.
+var flagGroups = []struct {
+	title string
+	names []string
+}{
+	{"Modes", []string{"list-servers", "list-configs", "renew-serial"}},
+	{"Authentication", []string{"username", "password"}},
+	{"Server selection", []string{"countries", "server", "p2p-only", "secure-core", "free-only", "debug"}},
+	{"Output and network", []string{"output", "device-name", "ipv6", "dns", "allowed-ips", "accelerator", "port-forwarding", "moderate-nat"}},
+	{"Certificate and session", []string{"duration", "no-save", "session-duration", "clear-session", "no-session", "force-refresh", "hv-token", "api-url"}},
+}
+
+// PrintUsage prints the synopsis followed by every flag, grouped.
 func PrintUsage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s -username <username> -countries <country-codes> [options]\n", os.Args[0])
-	fmt.Fprintf(os.Stderr, "       %s -username <username> -server <server-name> [options]\n\n", os.Args[0])
-	flag.PrintDefaults()
+	bin := filepath.Base(os.Args[0])
+	out := func(format string, a ...any) { _, _ = fmt.Fprintf(os.Stderr, format, a...) }
+
+	out("Usage:\n")
+	out("  %s --username <user> --countries <codes> [flags]\n", bin)
+	out("  %s --username <user> --server <name> [flags]\n", bin)
+	out("  %s --username <user> --list-servers [--countries <codes>]\n", bin)
+	out("  %s --username <user> --list-configs\n", bin)
+	out("  %s --username <user> --renew-serial <serial>\n\n", bin)
+
+	out("Flags take --name value or --name=value. Booleans are switches: --ipv6 turns\n")
+	out("one on, --accelerator=false turns one off. A single dash (-name) also works.\n")
+
+	// Width of the longest "--name type" column, for alignment across groups.
+	width := 0
+	flag.VisitAll(func(f *flag.Flag) {
+		if n := len(flagLabel(f)); n > width {
+			width = n
+		}
+	})
+
+	for _, g := range flagGroups {
+		out("\n%s:\n", g.title)
+		for _, name := range g.names {
+			f := flag.Lookup(name)
+			if f == nil {
+				continue
+			}
+			_, usage := flag.UnquoteUsage(f)
+			out("  %-*s  %s%s\n", width, flagLabel(f), usage, defaultSuffix(f))
+		}
+	}
+}
+
+// flagLabel renders "--name" plus the value type for non-boolean flags.
+func flagLabel(f *flag.Flag) string {
+	typ, _ := flag.UnquoteUsage(f)
+	if typ == "" {
+		return "--" + f.Name
+	}
+	return "--" + f.Name + " " + typ
+}
+
+// defaultSuffix renders " (default X)" for flags whose zero value is not the
+// default, mirroring flag.PrintDefaults.
+func defaultSuffix(f *flag.Flag) string {
+	if f.DefValue == "" || f.DefValue == "false" || f.DefValue == "0" {
+		return ""
+	}
+	if _, isBool := f.Value.(interface{ IsBoolFlag() bool }); isBool {
+		return fmt.Sprintf(" (default %s)", f.DefValue)
+	}
+	return fmt.Sprintf(" (default %q)", f.DefValue)
 }

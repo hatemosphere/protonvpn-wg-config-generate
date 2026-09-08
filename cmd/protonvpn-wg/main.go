@@ -182,7 +182,7 @@ func renewSerial(cfg *config.Config, vpnClient *vpn.Client) error {
 	}
 
 	if target == nil {
-		return fmt.Errorf("certificate with SerialNumber %s not found (use -list-configs to see available certificates)", cfg.RenewSerial)
+		return fmt.Errorf("certificate with SerialNumber %s not found (use --list-configs to see available certificates)", cfg.RenewSerial)
 	}
 
 	if target.ClientKey == "" {

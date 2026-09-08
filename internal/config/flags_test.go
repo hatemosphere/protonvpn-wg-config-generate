@@ -1,6 +1,8 @@
 package config
 
 import (
+	"flag"
+	"io"
 	"testing"
 
 	"protonvpn-wg-confgen/internal/constants"
@@ -41,5 +43,40 @@ func TestValidateFeatureFlags(t *testing.T) {
 				t.Fatalf("validateFeatureFlags() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+// TestFlagGroupsCoverAllFlags guards --help: every registered flag must be
+// listed in exactly one group, or it silently disappears from the output.
+func TestFlagGroupsCoverAllFlags(t *testing.T) {
+	// Registering flags is a side effect of Parse; do it on a scratch FlagSet
+	// via the real registration path so this test tracks the actual list.
+	old := flag.CommandLine
+	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
+	flag.CommandLine.SetOutput(io.Discard)
+	defer func() { flag.CommandLine = old }()
+
+	_, _ = Parse() // fails on missing --countries, but flags are registered by then
+
+	registered := map[string]bool{}
+	flag.VisitAll(func(f *flag.Flag) { registered[f.Name] = true })
+
+	seen := map[string]int{}
+	for _, g := range flagGroups {
+		for _, name := range g.names {
+			seen[name]++
+			if !registered[name] {
+				t.Errorf("group %q lists %q, which is not a registered flag", g.title, name)
+			}
+		}
+	}
+	for name := range registered {
+		switch seen[name] {
+		case 0:
+			t.Errorf("flag %q is registered but missing from flagGroups, so it is absent from --help", name)
+		case 1:
+		default:
+			t.Errorf("flag %q appears in %d groups", name, seen[name])
+		}
 	}
 }

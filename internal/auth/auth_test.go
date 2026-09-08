@@ -64,7 +64,7 @@ func TestCaptchaError(t *testing.T) {
 	// explicit that the replayed token is a different one.
 	for _, want := range []string{
 		"https://vpn-api.proton.me/core/v4/captcha?Token=tok-123",
-		"-hv-token",
+		"--hv-token",
 		"pm_captcha",
 		"tok-123:<long-response>",
 		"proton_captcha",
@@ -77,7 +77,7 @@ func TestCaptchaError(t *testing.T) {
 
 	// With no token there is nothing to replay, so do not advertise the flag.
 	bare := &api.Session{Code: 9001}
-	if msg := captchaError(bare, "https://vpn-api.proton.me").Error(); strings.Contains(msg, "-hv-token") {
-		t.Errorf("tokenless captcha error should not suggest -hv-token:\n%s", msg)
+	if msg := captchaError(bare, "https://vpn-api.proton.me").Error(); strings.Contains(msg, "--hv-token") {
+		t.Errorf("tokenless captcha error should not suggest --hv-token:\n%s", msg)
 	}
 }
